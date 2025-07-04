@@ -8,6 +8,7 @@ import { fetchDivineToChaoRate, formatLeagueName } from './utils/apiService';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, TOAST_MESSAGES } from './utils/toastUtils';
 import { Header } from './components/Header';
+import { StickyLeftSidebar } from './components/StickyLeftSidebar';
 import { TransactionCard } from './components/TransactionCard';
 import { DataModal } from './components/DataModal';
 import { ToastProvider } from './components/ToastProvider';
@@ -473,11 +474,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
-      <Header
+      {/* Sticky Left Sidebar */}
+      <StickyLeftSidebar
         divineToChaoRate={divineToChaoRate}
         totalProfitCurrency={totalProfitCurrency}
-        getTotalProfit={getTotalProfit}
         getTotalProfitByFilter={getTotalProfitByFilter}
         chaosToDiv={chaosToDivFn}
         divToChaos={divToChaosFn}
@@ -496,8 +496,13 @@ function App() {
         onProfitFilterChange={setProfitFilter}
       />
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Main Content with Left Margin */}
+      <div className="ml-72">
+        {/* Header */}
+        <Header />
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Controls Section */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           {/* Left side controls */}
@@ -786,37 +791,38 @@ function App() {
             </button>
           </div>
         )}
-      </div>
+        </div>
 
-      {/* Export/Import Modal */}
-      <DataModal
-        showDataModal={showDataModal}
-        modalTab={modalTab}
-        isExporting={isExporting}
-        isImporting={isImporting}
-        importStatus={importStatus}
-        importError={importError}
-        transactions={transactions}
-        groups={groups}
-        divineToChaoRate={divineToChaoRate}
-        onClose={() => {
-          setShowDataModal(false);
-          setImportStatus('idle');
-          setImportError('');
-        }}
-        onTabChange={(tab) => {
-          setModalTab(tab);
-          if (tab === 'import') {
+        {/* Export/Import Modal */}
+        <DataModal
+          showDataModal={showDataModal}
+          modalTab={modalTab}
+          isExporting={isExporting}
+          isImporting={isImporting}
+          importStatus={importStatus}
+          importError={importError}
+          transactions={transactions}
+          groups={groups}
+          divineToChaoRate={divineToChaoRate}
+          onClose={() => {
+            setShowDataModal(false);
             setImportStatus('idle');
             setImportError('');
-          }
-        }}
-        onExport={exportData}
-        onFileUpload={handleFileUpload}
-      />
+          }}
+          onTabChange={(tab) => {
+            setModalTab(tab);
+            if (tab === 'import') {
+              setImportStatus('idle');
+              setImportError('');
+            }
+          }}
+          onExport={exportData}
+          onFileUpload={handleFileUpload}
+        />
 
-      {/* Toast Provider */}
-      <ToastProvider />
+        {/* Toast Provider */}
+        <ToastProvider />
+      </div>
     </div>
   );
 }
