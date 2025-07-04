@@ -1,194 +1,268 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, TrendingUp, TrendingDown, Coins, RefreshCw, Search, Star, Folder, FolderOpen, Edit3, Check, X, ArrowUpDown, Download, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Calculator, 
+  Plus, 
+  Trash2, 
+  RefreshCw, 
+  Search, 
+  Star, 
+  Users, 
+  Download, 
+  Upload,
+  X,
+  Check,
+  AlertCircle,
+  Loader2,
+  Globe
+} from 'lucide-react';
 
 interface Transaction {
   id: string;
   name: string;
-  buyQuantity: number;
-  buyPrice: number;
-  sellQuantity: number;
-  sellPrice: number;
+  pricePerUnit: number;
+  pricePerUnitCurrency: 'chaos' | 'divine';
+  quantity: number;
+  totalCost: number;
+  totalCostCurrency: 'chaos' | 'divine';
+  profit: number;
+  profitCurrency: 'chaos' | 'divine';
   isFavorite: boolean;
-  groupId: string | null;
-  buyPriceCurrency: 'chaos' | 'divine';
-  sellPriceCurrency: 'chaos' | 'divine';
+  groupId?: string;
 }
 
-interface TransactionGroup {
+interface Group {
   id: string;
   name: string;
   color: string;
-  isExpanded: boolean;
 }
 
 interface ExportData {
   transactions: Transaction[];
-  groups: TransactionGroup[];
+  groups: Group[];
   divineToChaoRate: number;
+  userDivineToChaoRate: number;
+  selectedLeague: string;
   exportDate: string;
   version: string;
 }
 
-const STORAGE_KEYS = {
-  TRANSACTIONS: 'poe-trading-transactions',
-  GROUPS: 'poe-trading-groups',
-  EXCHANGE_RATE: 'poe-divine-chaos-rate',
-  LAST_UPDATED: 'poe-rate-last-updated'
-};
-
-const GROUP_COLORS = [
-  'bg-blue-500/20 border-blue-500/30 text-blue-400',
-  'bg-green-500/20 border-green-500/30 text-green-400',
-  'bg-purple-500/20 border-purple-500/30 text-purple-400',
-  'bg-pink-500/20 border-pink-500/30 text-pink-400',
-  'bg-orange-500/20 border-orange-500/30 text-orange-400',
-  'bg-cyan-500/20 border-cyan-500/30 text-cyan-400',
+const POE_LEAGUES = [
+  'Standard',
+  'Hardcore',
+  'Settlers',
+  'Hardcore Settlers',
+  'Solo Self-Found',
+  'Hardcore Solo Self-Found',
+  'Mercenaries',
+  'Hardcore Mercenaries'
 ];
 
-// Currency images from POE Wiki
-const CURRENCY_IMAGES = {
-  chaos: 'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lSZXJvbGxSYXJlIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/d119a0d734/CurrencyRerollRare.png',
-  divine: 'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lNb2RWYWx1ZXMiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/e1a54ff97d/CurrencyModValues.png'
-};
+const GROUP_COLORS = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e', 
+  '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'
+];
 
-function App() {
-  const [divineToChaoRate, setDivineToChaoRate] = useState<number>(180);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [groups, setGroups] = useState<TransactionGroup[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [showGroupForm, setShowGroupForm] = useState<boolean>(false);
-  const [newGroupName, setNewGroupName] = useState<string>('');
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [editingGroupName, setEditingGroupName] = useState<string>('');
-  const [totalProfitCurrency, setTotalProfitCurrency] = useState<'chaos' | 'divine'>('chaos');
-  
-  // Export/Import modal states
-  const [showDataModal, setShowDataModal] = useState<boolean>(false);
-  const [modalTab, setModalTab] = useState<'export' | 'import'>('export');
-  const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [isImporting, setIsImporting] = useState<boolean>(false);
-  const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [importError, setImportError] = useState<string>('');
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedLeague, setSelectedLeague] = useState('Mercenaries');
+  const [apiDivineToChaoRate, setApiDivineToChaoRate] = useState(180);
+  const [userDivineToChaoRate, setUserDivineToChaoRate] = useState(180);
+  const [apiLastUpdated, setApiLastUpdated] = useState<Date | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [newTransaction, setNewTransaction] = useState({
+    name: '',
+    pricePerUnit: '',
+    pricePerUnitCurrency: 'chaos' as 'chaos' | 'divine',
+    quantity: '',
+    totalCost: '',
+    totalCostCurrency: 'chaos' as 'chaos' | 'divine',
+    profit: '',
+    profitCurrency: 'chaos' as 'chaos' | 'divine',
+    groupId: ''
+  });
+  const [newGroup, setNewGroup] = useState({ name: '', color: GROUP_COLORS[0] });
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [showExportImportModal, setShowExportImportModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
+  const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [importError, setImportError] = useState('');
+  const [isLoadingRate, setIsLoadingRate] = useState(false);
 
-  // Load data from localStorage on component mount
+  // Load data from localStorage
   useEffect(() => {
-    try {
-      // Load transactions
-      const savedTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-      if (savedTransactions) {
+    const savedTransactions = localStorage.getItem('poe-transactions');
+    const savedGroups = localStorage.getItem('poe-groups');
+    const savedApiRate = localStorage.getItem('poe-api-divine-rate');
+    const savedUserRate = localStorage.getItem('poe-user-divine-rate');
+    const savedLeague = localStorage.getItem('poe-selected-league');
+    const savedApiLastUpdated = localStorage.getItem('poe-api-last-updated');
+
+    if (savedTransactions) {
+      try {
         const parsedTransactions = JSON.parse(savedTransactions);
-        // Migrate old transactions to include currency fields
+        // Migrate old data to include currency fields
         const migratedTransactions = parsedTransactions.map((t: any) => ({
           ...t,
-          buyPriceCurrency: t.buyPriceCurrency || 'chaos',
-          sellPriceCurrency: t.sellPriceCurrency || 'chaos'
+          pricePerUnitCurrency: t.pricePerUnitCurrency || 'chaos',
+          totalCostCurrency: t.totalCostCurrency || 'chaos',
+          profitCurrency: t.profitCurrency || 'chaos'
         }));
         setTransactions(migratedTransactions);
+      } catch (error) {
+        console.error('Error parsing saved transactions:', error);
       }
+    }
 
-      // Load groups
-      const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
-      if (savedGroups) {
-        const parsedGroups = JSON.parse(savedGroups);
-        setGroups(parsedGroups);
+    if (savedGroups) {
+      try {
+        setGroups(JSON.parse(savedGroups));
+      } catch (error) {
+        console.error('Error parsing saved groups:', error);
       }
+    }
 
-      // Load exchange rate
-      const savedRate = localStorage.getItem(STORAGE_KEYS.EXCHANGE_RATE);
-      if (savedRate) {
-        setDivineToChaoRate(Number(savedRate));
-      }
+    if (savedApiRate) {
+      setApiDivineToChaoRate(parseFloat(savedApiRate));
+    }
 
-      // Load last updated timestamp
-      const savedLastUpdated = localStorage.getItem(STORAGE_KEYS.LAST_UPDATED);
-      if (savedLastUpdated) {
-        setLastUpdated(new Date(savedLastUpdated));
-      }
-    } catch (error) {
-      console.error('Error loading data from localStorage:', error);
+    if (savedUserRate) {
+      setUserDivineToChaoRate(parseFloat(savedUserRate));
+    }
+
+    if (savedLeague) {
+      setSelectedLeague(savedLeague);
+    }
+
+    if (savedApiLastUpdated) {
+      setApiLastUpdated(new Date(savedApiLastUpdated));
     }
   }, []);
 
-  // Save transactions to localStorage whenever transactions change
+  // Save data to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-    } catch (error) {
-      console.error('Error saving transactions to localStorage:', error);
-    }
+    localStorage.setItem('poe-transactions', JSON.stringify(transactions));
   }, [transactions]);
 
-  // Save groups to localStorage whenever groups change
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(groups));
-    } catch (error) {
-      console.error('Error saving groups to localStorage:', error);
-    }
+    localStorage.setItem('poe-groups', JSON.stringify(groups));
   }, [groups]);
 
-  // Save exchange rate to localStorage whenever it changes
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.EXCHANGE_RATE, divineToChaoRate.toString());
-    } catch (error) {
-      console.error('Error saving exchange rate to localStorage:', error);
-    }
-  }, [divineToChaoRate]);
+    localStorage.setItem('poe-api-divine-rate', apiDivineToChaoRate.toString());
+  }, [apiDivineToChaoRate]);
 
-  // Save last updated timestamp to localStorage whenever it changes
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, lastUpdated.toISOString());
-    } catch (error) {
-      console.error('Error saving last updated timestamp to localStorage:', error);
-    }
-  }, [lastUpdated]);
+    localStorage.setItem('poe-user-divine-rate', userDivineToChaoRate.toString());
+  }, [userDivineToChaoRate]);
 
-  const updateExchangeRate = async () => {
-    setIsUpdating(true);
+  useEffect(() => {
+    localStorage.setItem('poe-selected-league', selectedLeague);
+  }, [selectedLeague]);
+
+  useEffect(() => {
+    if (apiLastUpdated) {
+      localStorage.setItem('poe-api-last-updated', apiLastUpdated.toISOString());
+    }
+  }, [apiLastUpdated]);
+
+  // Fetch exchange rate from POE.ninja API
+  const fetchExchangeRate = async () => {
+    setIsLoadingRate(true);
     try {
-      // Simulate API call - replace with your actual API endpoint
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // const response = await fetch('your-api-endpoint');
-      // const data = await response.json();
-      // setDivineToChaoRate(data.rate);
+      const response = await fetch(
+        `https://poe.ninja/api/data/currencyoverview?league=${selectedLeague}&type=Currency`
+      );
       
-      // For demo purposes, we'll just update the timestamp
-      setLastUpdated(new Date());
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const divineOrb = data.lines?.find((item: any) => 
+        item.currencyTypeName === 'Divine Orb'
+      );
+      
+      if (divineOrb && divineOrb.chaosEquivalent) {
+        const newRate = Math.round(divineOrb.chaosEquivalent * 100) / 100;
+        setApiDivineToChaoRate(newRate);
+        setUserDivineToChaoRate(newRate);
+        setApiLastUpdated(new Date());
+      } else {
+        throw new Error('Divine Orb data not found in API response');
+      }
     } catch (error) {
-      console.error('Failed to update exchange rate:', error);
+      console.error('Error fetching exchange rate:', error);
+      alert('Không thể tải tỉ giá từ POE.ninja. Vui lòng thử lại sau.');
     } finally {
-      setIsUpdating(false);
+      setIsLoadingRate(false);
     }
   };
 
-  const addTransaction = (groupId: string | null = null) => {
-    const newTransaction: Transaction = {
+  // Fetch rate on component mount and league change
+  useEffect(() => {
+    fetchExchangeRate();
+  }, [selectedLeague]);
+
+  const convertCurrency = (amount: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine'): number => {
+    if (fromCurrency === toCurrency) return amount;
+    
+    if (fromCurrency === 'divine' && toCurrency === 'chaos') {
+      return amount * userDivineToChaoRate;
+    } else if (fromCurrency === 'chaos' && toCurrency === 'divine') {
+      return amount / userDivineToChaoRate;
+    }
+    
+    return amount;
+  };
+
+  const formatCurrency = (amount: number, currency: 'chaos' | 'divine'): string => {
+    const formatted = amount.toFixed(2);
+    return currency === 'chaos' ? `${formatted} 🔥` : `${formatted} ⚡`;
+  };
+
+  const addTransaction = () => {
+    if (!newTransaction.name || !newTransaction.pricePerUnit || !newTransaction.quantity) {
+      alert('Vui lòng điền đầy đủ thông tin giao dịch');
+      return;
+    }
+
+    const pricePerUnit = parseFloat(newTransaction.pricePerUnit);
+    const quantity = parseFloat(newTransaction.quantity);
+    const totalCost = parseFloat(newTransaction.totalCost) || (pricePerUnit * quantity);
+    const profit = parseFloat(newTransaction.profit) || 0;
+
+    const transaction: Transaction = {
       id: Date.now().toString(),
-      name: `Giao dịch ${transactions.length + 1}`,
-      buyQuantity: 0,
-      buyPrice: 0,
-      sellQuantity: 0,
-      sellPrice: 0,
+      name: newTransaction.name,
+      pricePerUnit,
+      pricePerUnitCurrency: newTransaction.pricePerUnitCurrency,
+      quantity,
+      totalCost,
+      totalCostCurrency: newTransaction.totalCostCurrency,
+      profit,
+      profitCurrency: newTransaction.profitCurrency,
       isFavorite: false,
-      groupId: groupId,
-      buyPriceCurrency: 'chaos',
-      sellPriceCurrency: 'chaos',
+      groupId: newTransaction.groupId || undefined
     };
-    setTransactions([...transactions, newTransaction]);
+
+    setTransactions([...transactions, transaction]);
+    setNewTransaction({
+      name: '',
+      pricePerUnit: '',
+      pricePerUnitCurrency: 'chaos',
+      quantity: '',
+      totalCost: '',
+      totalCostCurrency: 'chaos',
+      profit: '',
+      profitCurrency: 'chaos',
+      groupId: ''
+    });
   };
 
-  const removeTransaction = (id: string) => {
+  const deleteTransaction = (id: string) => {
     setTransactions(transactions.filter(t => t.id !== id));
-  };
-
-  const updateTransaction = (id: string, field: keyof Transaction, value: string | number | boolean) => {
-    setTransactions(transactions.map(t => 
-      t.id === id ? { ...t, [field]: value } : t
-    ));
   };
 
   const toggleFavorite = (id: string) => {
@@ -197,157 +271,69 @@ function App() {
     ));
   };
 
-  const createGroup = () => {
-    if (newGroupName.trim()) {
-      const newGroup: TransactionGroup = {
-        id: Date.now().toString(),
-        name: newGroupName.trim(),
-        color: GROUP_COLORS[groups.length % GROUP_COLORS.length],
-        isExpanded: true,
-      };
-      setGroups([...groups, newGroup]);
-      setNewGroupName('');
-      setShowGroupForm(false);
+  const addGroup = () => {
+    if (!newGroup.name) {
+      alert('Vui lòng nhập tên nhóm');
+      return;
     }
+
+    const group: Group = {
+      id: Date.now().toString(),
+      name: newGroup.name,
+      color: newGroup.color
+    };
+
+    setGroups([...groups, group]);
+    setNewGroup({ name: '', color: GROUP_COLORS[0] });
+    setShowGroupForm(false);
   };
 
   const deleteGroup = (groupId: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa nhóm này? Các giao dịch trong nhóm sẽ được chuyển về "Không có nhóm".')) {
-      // Move transactions out of the group
-      setTransactions(transactions.map(t => 
-        t.groupId === groupId ? { ...t, groupId: null } : t
-      ));
-      // Remove the group
-      setGroups(groups.filter(g => g.id !== groupId));
-    }
-  };
-
-  const toggleGroupExpansion = (groupId: string) => {
-    setGroups(groups.map(g => 
-      g.id === groupId ? { ...g, isExpanded: !g.isExpanded } : g
+    setGroups(groups.filter(g => g.id !== groupId));
+    setTransactions(transactions.map(t => 
+      t.groupId === groupId ? { ...t, groupId: undefined } : t
     ));
   };
 
-  const startEditingGroup = (group: TransactionGroup) => {
-    setEditingGroupId(group.id);
-    setEditingGroupName(group.name);
-  };
-
-  const saveGroupEdit = () => {
-    if (editingGroupName.trim()) {
-      setGroups(groups.map(g => 
-        g.id === editingGroupId ? { ...g, name: editingGroupName.trim() } : g
-      ));
-    }
-    setEditingGroupId(null);
-    setEditingGroupName('');
-  };
-
-  const cancelGroupEdit = () => {
-    setEditingGroupId(null);
-    setEditingGroupName('');
-  };
-
-  // Currency conversion functions
-  const chaosToDiv = (chaosAmount: number) => {
-    return chaosAmount / divineToChaoRate;
-  };
-
-  const divToChaos = (divAmount: number) => {
-    return divAmount * divineToChaoRate;
-  };
-
-  const convertPrice = (price: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine') => {
-    if (fromCurrency === toCurrency) return price;
-    if (fromCurrency === 'chaos' && toCurrency === 'divine') return chaosToDiv(price);
-    if (fromCurrency === 'divine' && toCurrency === 'chaos') return divToChaos(price);
-    return price;
-  };
-
-  const getPriceInChaos = (price: number, currency: 'chaos' | 'divine') => {
-    return currency === 'chaos' ? price : divToChaos(price);
-  };
-
-  const calculateProfit = (transaction: Transaction) => {
-    const buyPriceInChaos = getPriceInChaos(transaction.buyPrice, transaction.buyPriceCurrency);
-    const sellPriceInChaos = getPriceInChaos(transaction.sellPrice, transaction.sellPriceCurrency);
-    
-    const totalBuyValue = transaction.buyQuantity * buyPriceInChaos;
-    const totalSellValue = transaction.sellQuantity * sellPriceInChaos;
-    const profit = totalSellValue - totalBuyValue;
-    const profitPercentage = totalBuyValue > 0 ? (profit / totalBuyValue) * 100 : 0;
-    return { profit, profitPercentage };
-  };
-
-  const getTotalProfit = () => {
-    const filteredTransactions = getFilteredTransactions();
-    const totalProfitInChaos = filteredTransactions.reduce((total, transaction) => {
-      const { profit } = calculateProfit(transaction);
-      return total + profit;
-    }, 0);
-    
-    return totalProfitCurrency === 'chaos' ? totalProfitInChaos : chaosToDiv(totalProfitInChaos);
-  };
-
-  const getFilteredTransactions = () => {
-    return transactions.filter(transaction =>
-      transaction.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions.filter(t => 
+      t.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  };
 
-  const getSortedTransactions = () => {
-    const filtered = getFilteredTransactions();
-    return filtered.sort((a, b) => {
-      // Favorites first
+    // Sort: favorites first, then by creation time (newest first)
+    filtered.sort((a, b) => {
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
-      return 0;
-    });
-  };
-
-  const getTransactionsByGroup = () => {
-    const sorted = getSortedTransactions();
-    const grouped: { [key: string]: Transaction[] } = {
-      ungrouped: []
-    };
-
-    groups.forEach(group => {
-      grouped[group.id] = [];
+      return parseInt(b.id) - parseInt(a.id);
     });
 
-    sorted.forEach(transaction => {
-      if (transaction.groupId && grouped[transaction.groupId]) {
-        grouped[transaction.groupId].push(transaction);
-      } else {
-        grouped.ungrouped.push(transaction);
-      }
-    });
+    return filtered;
+  }, [transactions, searchTerm]);
 
-    return grouped;
+  const totalProfit = useMemo(() => {
+    return transactions.reduce((sum, t) => {
+      const profitInChaos = convertCurrency(t.profit, t.profitCurrency, 'chaos');
+      return sum + profitInChaos;
+    }, 0);
+  }, [transactions, userDivineToChaoRate]);
+
+  const getGroupById = (groupId?: string) => {
+    return groups.find(g => g.id === groupId);
   };
 
-  const clearAllData = () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu? Hành động này không thể hoàn tác.')) {
-      setTransactions([]);
-      setGroups([]);
-      setSearchTerm('');
-      // Clear localStorage
-      localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
-      localStorage.removeItem(STORAGE_KEYS.GROUPS);
-    }
-  };
-
-  // Export/Import functions
   const exportData = async () => {
-    setIsExporting(true);
+    setExportStatus('loading');
+    
     try {
-      // Simulate processing time
+      // Simulate some processing time
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const exportData: ExportData = {
         transactions,
         groups,
-        divineToChaoRate,
+        divineToChaoRate: apiDivineToChaoRate,
+        userDivineToChaoRate,
+        selectedLeague,
         exportDate: new Date().toISOString(),
         version: '1.0'
       };
@@ -362,880 +348,670 @@ function App() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
       URL.revokeObjectURL(url);
+      setExportStatus('success');
+      
+      setTimeout(() => {
+        setExportStatus('idle');
+      }, 2000);
     } catch (error) {
-      console.error('Export failed:', error);
-    } finally {
-      setIsExporting(false);
+      console.error('Export error:', error);
+      setExportStatus('error');
+      setTimeout(() => {
+        setExportStatus('idle');
+      }, 3000);
     }
   };
 
-  const importData = async (file: File) => {
-    setIsImporting(true);
-    setImportStatus('idle');
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('loading');
     setImportError('');
 
     try {
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       const text = await file.text();
-      const importedData: ExportData = JSON.parse(text);
+      const data: ExportData = JSON.parse(text);
 
-      // Validate imported data structure
-      if (!importedData.transactions || !Array.isArray(importedData.transactions)) {
+      // Validate data structure
+      if (!data.transactions || !Array.isArray(data.transactions)) {
         throw new Error('Dữ liệu không hợp lệ: thiếu danh sách giao dịch');
       }
 
-      if (!importedData.groups || !Array.isArray(importedData.groups)) {
-        throw new Error('Dữ liệu không hợp lệ: thiếu danh sách nhóm');
-      }
-
-      // Migrate imported transactions to ensure they have all required fields
-      const migratedTransactions = importedData.transactions.map((t: any) => ({
+      // Migrate old data format
+      const migratedTransactions = data.transactions.map(t => ({
         ...t,
-        buyPriceCurrency: t.buyPriceCurrency || 'chaos',
-        sellPriceCurrency: t.sellPriceCurrency || 'chaos'
+        pricePerUnitCurrency: t.pricePerUnitCurrency || 'chaos',
+        totalCostCurrency: t.totalCostCurrency || 'chaos',
+        profitCurrency: t.profitCurrency || 'chaos'
       }));
 
-      // Update state with imported data
       setTransactions(migratedTransactions);
-      setGroups(importedData.groups);
+      setGroups(data.groups || []);
       
-      if (importedData.divineToChaoRate) {
-        setDivineToChaoRate(importedData.divineToChaoRate);
+      if (data.divineToChaoRate) {
+        setApiDivineToChaoRate(data.divineToChaoRate);
+      }
+      
+      if (data.userDivineToChaoRate) {
+        setUserDivineToChaoRate(data.userDivineToChaoRate);
+      }
+      
+      if (data.selectedLeague) {
+        setSelectedLeague(data.selectedLeague);
       }
 
       setImportStatus('success');
       
-      // Auto close modal after success
       setTimeout(() => {
-        setShowDataModal(false);
         setImportStatus('idle');
+        setShowExportImportModal(false);
       }, 2000);
-
     } catch (error) {
-      console.error('Import failed:', error);
+      console.error('Import error:', error);
+      setImportError(error instanceof Error ? error.message : 'Lỗi không xác định');
       setImportStatus('error');
-      setImportError(error instanceof Error ? error.message : 'Lỗi không xác định khi import dữ liệu');
-    } finally {
-      setIsImporting(false);
+    }
+
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    const jsonFile = files.find(file => file.type === 'application/json' || file.name.endsWith('.json'));
+    
+    if (jsonFile) {
+      const fakeEvent = {
+        target: { files: [jsonFile] }
+      } as any;
+      await handleFileImport(fakeEvent);
     }
   };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.type !== 'application/json') {
-        setImportStatus('error');
-        setImportError('Vui lòng chọn file JSON hợp lệ');
-        return;
-      }
-      importData(file);
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  const groupedTransactions = getTransactionsByGroup();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center">
-                <Coins className="w-6 h-6 text-slate-900" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+            POE Trading Calculator
+          </h1>
+          <p className="text-gray-400">Tính toán lợi nhuận giao dịch Path of Exile</p>
+        </div>
+
+        {/* League Selection and Exchange Rate */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* League Selection */}
+            <div className="flex items-center gap-4">
+              <Globe className="w-5 h-5 text-blue-400" />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Mùa POE
+                </label>
+                <select
+                  value={selectedLeague}
+                  onChange={(e) => setSelectedLeague(e.target.value)}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {POE_LEAGUES.map(league => (
+                    <option key={league} value={league}>
+                      {league}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <h1 className="text-2xl font-bold text-white">POE Trading Calculator</h1>
             </div>
-            
-            <div className="flex items-center space-x-4 flex-wrap gap-4">
-              {/* Exchange Rate Section */}
-              <div className="bg-slate-700/50 rounded-lg px-4 py-3 border border-slate-600">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-slate-300 flex items-center space-x-2">
-                    <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-4 h-4" />
-                    <span>Divine → Chaos</span>
-                    <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
-                  </label>
-                  <button
-                    onClick={updateExchangeRate}
-                    disabled={isUpdating}
-                    className="text-slate-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
-                    title="Cập nhật tỷ giá"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                <div className="flex items-center space-x-2 mb-1">
+
+            {/* Exchange Rate */}
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⚡ = </span>
                   <input
                     type="number"
-                    value={divineToChaoRate}
-                    onChange={(e) => setDivineToChaoRate(Number(e.target.value))}
-                    className="w-20 bg-slate-800 text-white rounded px-2 py-1 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
+                    value={userDivineToChaoRate}
+                    onChange={(e) => setUserDivineToChaoRate(parseFloat(e.target.value) || 0)}
+                    className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 w-24 text-center text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xl font-bold"
+                    step="0.01"
                   />
-                  <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400">
-                  Cập nhật: {formatTime(lastUpdated)}
-                </div>
-              </div>
-
-              {/* Total Profit */}
-              <div className="bg-slate-700/50 rounded-lg px-4 py-3 border border-slate-600">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm font-medium text-slate-300">Tổng lợi nhuận</div>
+                  <span className="text-lg">🔥</span>
                   <button
-                    onClick={() => setTotalProfitCurrency(totalProfitCurrency === 'chaos' ? 'divine' : 'chaos')}
-                    className="text-slate-400 hover:text-yellow-400 transition-colors"
-                    title="Chuyển đổi đơn vị"
+                    onClick={fetchExchangeRate}
+                    disabled={isLoadingRate}
+                    className="ml-2 p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-lg transition-colors"
+                    title="Cập nhật tỉ giá từ POE.ninja"
                   >
-                    <ArrowUpDown className="w-3 h-3" />
+                    {isLoadingRate ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
-                <div className={`text-lg font-bold flex items-center space-x-1 ${getTotalProfit() >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  <span>{getTotalProfit().toFixed(totalProfitCurrency === 'chaos' ? 2 : 3)}</span>
-                  <img src={CURRENCY_IMAGES[totalProfitCurrency]} alt={`${totalProfitCurrency} Orb`} className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400 flex items-center space-x-1">
-                  <span>≈ {totalProfitCurrency === 'chaos' ? chaosToDiv(getTotalProfit()).toFixed(3) : divToChaos(getTotalProfit()).toFixed(2)}</span>
-                  <img src={CURRENCY_IMAGES[totalProfitCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${totalProfitCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
+                <div className="text-xs text-gray-400">
+                  <div>POE.NINJA: {apiDivineToChaoRate.toFixed(2)} 🔥</div>
+                  {apiLastUpdated && (
+                    <div>Cập nhật: {apiLastUpdated.toLocaleString('vi-VN')}</div>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Controls Section */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          {/* Left side controls */}
-          <div className="flex items-center space-x-4 flex-wrap gap-2">
+            {/* Export/Import Button */}
             <button
-              onClick={() => addTransaction()}
-              className="group flex items-center space-x-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-slate-900 px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
-            >
-              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
-              <span>Thêm giao dịch</span>
-            </button>
-
-            <button
-              onClick={() => setShowGroupForm(!showGroupForm)}
-              className="flex items-center space-x-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-blue-600/30"
-            >
-              <Folder className="w-4 h-4" />
-              <span>Tạo nhóm</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowDataModal(true);
-                setModalTab('export');
-              }}
-              className="flex items-center space-x-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 hover:text-green-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-green-600/30"
+              onClick={() => setShowExportImportModal(true)}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span>Xuất dữ liệu</span>
+              Xuất/Nhập dữ liệu
             </button>
-
-            <button
-              onClick={() => {
-                setShowDataModal(true);
-                setModalTab('import');
-              }}
-              className="flex items-center space-x-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-purple-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-purple-600/30"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Nhập dữ liệu</span>
-            </button>
-
-            {transactions.length > 0 && (
-              <button
-                onClick={clearAllData}
-                className="flex items-center space-x-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-red-600/30"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Xóa tất cả</span>
-              </button>
-            )}
-          </div>
-
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-80">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Tìm kiếm giao dịch..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-            />
           </div>
         </div>
 
-        {/* Group Creation Form */}
-        {showGroupForm && (
-          <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
-            <div className="flex items-center space-x-3">
+        {/* Search and Group Management */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Tên nhóm..."
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && createGroup()}
-                className="flex-1 bg-slate-700/50 text-white rounded-lg px-3 py-2 border border-slate-600 focus:border-blue-400 focus:outline-none"
-                autoFocus
+                placeholder="Tìm kiếm giao dịch..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <button
-                onClick={createGroup}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors"
+            </div>
+            <button
+              onClick={() => setShowGroupForm(!showGroupForm)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              Quản lý nhóm
+            </button>
+          </div>
+
+          {/* Group Management */}
+          {showGroupForm && (
+            <div className="mt-4 p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Tên nhóm
+                  </label>
+                  <input
+                    type="text"
+                    value={newGroup.name}
+                    onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Nhập tên nhóm..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Màu sắc
+                  </label>
+                  <div className="flex gap-2">
+                    {GROUP_COLORS.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setNewGroup({ ...newGroup, color })}
+                        className={`w-8 h-8 rounded-full border-2 ${
+                          newGroup.color === color ? 'border-white' : 'border-gray-500'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={addGroup}
+                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors"
+                >
+                  Thêm nhóm
+                </button>
+              </div>
+
+              {/* Existing Groups */}
+              {groups.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Nhóm hiện có:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {groups.map(group => (
+                      <div
+                        key={group.id}
+                        className="flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                        style={{ backgroundColor: group.color + '20', border: `1px solid ${group.color}` }}
+                      >
+                        <span style={{ color: group.color }}>●</span>
+                        <span>{group.name}</span>
+                        <button
+                          onClick={() => deleteGroup(group.id)}
+                          className="text-red-400 hover:text-red-300 ml-1"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Add Transaction Form */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Thêm giao dịch mới
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Tên giao dịch
+              </label>
+              <input
+                type="text"
+                value={newTransaction.name}
+                onChange={(e) => setNewTransaction({ ...newTransaction, name: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Nhập tên giao dịch..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Giá/Đơn vị
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={newTransaction.pricePerUnit}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, pricePerUnit: e.target.value })}
+                  className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                  step="0.01"
+                />
+                <select
+                  value={newTransaction.pricePerUnitCurrency}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, pricePerUnitCurrency: e.target.value as 'chaos' | 'divine' })}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="chaos">🔥</option>
+                  <option value="divine">⚡</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Số lượng
+              </label>
+              <input
+                type="number"
+                value={newTransaction.quantity}
+                onChange={(e) => setNewTransaction({ ...newTransaction, quantity: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0"
+                step="1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Nhóm
+              </label>
+              <select
+                value={newTransaction.groupId}
+                onChange={(e) => setNewTransaction({ ...newTransaction, groupId: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <Check className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  setShowGroupForm(false);
-                  setNewGroupName('');
-                }}
-                className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                <option value="">Không có nhóm</option>
+                {groups.map(group => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        )}
 
-        {/* Search Results Info */}
-        {searchTerm && (
-          <div className="mb-6 text-slate-400 text-sm">
-            Hiển thị {getSortedTransactions().length} / {transactions.length} giao dịch
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Tổng chi phí
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={newTransaction.totalCost}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, totalCost: e.target.value })}
+                  className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Tự động tính toán..."
+                  step="0.01"
+                />
+                <select
+                  value={newTransaction.totalCostCurrency}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, totalCostCurrency: e.target.value as 'chaos' | 'divine' })}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="chaos">🔥</option>
+                  <option value="divine">⚡</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Lợi nhuận
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={newTransaction.profit}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, profit: e.target.value })}
+                  className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                  step="0.01"
+                />
+                <select
+                  value={newTransaction.profitCurrency}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, profitCurrency: e.target.value as 'chaos' | 'divine' })}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="chaos">🔥</option>
+                  <option value="divine">⚡</option>
+                </select>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Data persistence indicator */}
-        {transactions.length > 0 && (
-          <div className="mb-6 flex items-center space-x-2 text-xs text-slate-500">
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-            <span>Dữ liệu được lưu tự động trong trình duyệt</span>
+          <button
+            onClick={addTransaction}
+            className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm giao dịch
+          </button>
+        </div>
+
+        {/* Total Profit */}
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg p-6 mb-6 text-center">
+          <h2 className="text-2xl font-bold mb-2">Tổng lợi nhuận</h2>
+          <div className="text-3xl font-bold">
+            {formatCurrency(totalProfit, 'chaos')} 
+            <span className="text-lg ml-2">
+              (≈ {formatCurrency(convertCurrency(totalProfit, 'chaos', 'divine'), 'divine')})
+            </span>
           </div>
-        )}
+        </div>
 
-        {/* Groups and Transactions */}
-        <div className="space-y-6">
-          {/* Render each group */}
-          {groups.map((group) => {
-            const groupTransactions = groupedTransactions[group.id] || [];
-            if (groupTransactions.length === 0 && searchTerm) return null;
+        {/* Transactions List */}
+        <div className="bg-gray-800 rounded-lg border border-gray-700">
+          <div className="p-6 border-b border-gray-700">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Calculator className="w-5 h-5" />
+              Danh sách giao dịch ({filteredTransactions.length})
+            </h2>
+          </div>
 
-            return (
-              <div key={group.id} className="space-y-4">
-                {/* Group Header */}
-                <div className={`rounded-lg p-4 border ${group.color}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => toggleGroupExpansion(group.id)}
-                        className="text-current hover:opacity-70 transition-opacity"
-                      >
-                        {group.isExpanded ? (
-                          <FolderOpen className="w-5 h-5" />
-                        ) : (
-                          <Folder className="w-5 h-5" />
+          <div className="divide-y divide-gray-700">
+            {filteredTransactions.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Calculator className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Chưa có giao dịch nào. Hãy thêm giao dịch đầu tiên!</p>
+              </div>
+            ) : (
+              filteredTransactions.map((transaction) => {
+                const group = getGroupById(transaction.groupId);
+                return (
+                  <div key={transaction.id} className="p-6 hover:bg-gray-750 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => toggleFavorite(transaction.id)}
+                          className={`p-1 rounded ${
+                            transaction.isFavorite 
+                              ? 'text-yellow-400 hover:text-yellow-300' 
+                              : 'text-gray-400 hover:text-yellow-400'
+                          }`}
+                        >
+                          <Star className={`w-4 h-4 ${transaction.isFavorite ? 'fill-current' : ''}`} />
+                        </button>
+                        <h3 className="text-lg font-semibold">{transaction.name}</h3>
+                        {group && (
+                          <span
+                            className="px-2 py-1 rounded-full text-xs font-medium"
+                            style={{ 
+                              backgroundColor: group.color + '20', 
+                              color: group.color,
+                              border: `1px solid ${group.color}`
+                            }}
+                          >
+                            {group.name}
+                          </span>
                         )}
-                      </button>
-                      
-                      {editingGroupId === group.id ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            value={editingGroupName}
-                            onChange={(e) => setEditingGroupName(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && saveGroupEdit()}
-                            className="bg-slate-700/50 text-white rounded px-2 py-1 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-                            autoFocus
-                          />
-                          <button
-                            onClick={saveGroupEdit}
-                            className="text-green-400 hover:text-green-300"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={cancelGroupEdit}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <h3 className="text-lg font-semibold">{group.name}</h3>
-                          <span className="text-sm opacity-70">({groupTransactions.length})</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
+                      </div>
                       <button
-                        onClick={() => addTransaction(group.id)}
-                        className="text-current hover:opacity-70 transition-opacity"
-                        title="Thêm giao dịch vào nhóm"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => startEditingGroup(group)}
-                        className="text-current hover:opacity-70 transition-opacity"
-                        title="Sửa tên nhóm"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteGroup(group.id)}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                        title="Xóa nhóm"
+                        onClick={() => deleteTransaction(transaction.id)}
+                        className="text-red-400 hover:text-red-300 p-1 rounded"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Giá/Đơn vị:</span>
+                        <div className="font-medium">
+                          {formatCurrency(transaction.pricePerUnit, transaction.pricePerUnitCurrency)}
+                          <div className="text-xs text-gray-400">
+                            ≈ {formatCurrency(
+                              convertCurrency(transaction.pricePerUnit, transaction.pricePerUnitCurrency, 
+                                transaction.pricePerUnitCurrency === 'chaos' ? 'divine' : 'chaos'), 
+                              transaction.pricePerUnitCurrency === 'chaos' ? 'divine' : 'chaos'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Số lượng:</span>
+                        <div className="font-medium">{transaction.quantity}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Tổng chi phí:</span>
+                        <div className="font-medium">
+                          {formatCurrency(transaction.totalCost, transaction.totalCostCurrency)}
+                          <div className="text-xs text-gray-400">
+                            ≈ {formatCurrency(
+                              convertCurrency(transaction.totalCost, transaction.totalCostCurrency, 
+                                transaction.totalCostCurrency === 'chaos' ? 'divine' : 'chaos'), 
+                              transaction.totalCostCurrency === 'chaos' ? 'divine' : 'chaos'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Lợi nhuận:</span>
+                        <div className={`font-medium ${transaction.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {formatCurrency(transaction.profit, transaction.profitCurrency)}
+                          <div className="text-xs text-gray-400">
+                            ≈ {formatCurrency(
+                              convertCurrency(transaction.profit, transaction.profitCurrency, 
+                                transaction.profitCurrency === 'chaos' ? 'divine' : 'chaos'), 
+                              transaction.profitCurrency === 'chaos' ? 'divine' : 'chaos'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Export/Import Modal */}
+        {showExportImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-md">
+              <div className="flex items-center justify-between p-6 border-b border-gray-700">
+                <h3 className="text-lg font-semibold">Quản lý dữ liệu</h3>
+                <button
+                  onClick={() => {
+                    setShowExportImportModal(false);
+                    setExportStatus('idle');
+                    setImportStatus('idle');
+                    setImportError('');
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                {/* Tabs */}
+                <div className="flex mb-6 bg-gray-700 rounded-lg p-1">
+                  <button
+                    onClick={() => setActiveTab('export')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'export'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    Xuất dữ liệu
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('import')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'import'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    Nhập dữ liệu
+                  </button>
                 </div>
 
-                {/* Group Transactions */}
-                {group.isExpanded && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 ml-4">
-                    {groupTransactions.map((transaction) => (
-                      <TransactionCard
-                        key={transaction.id}
-                        transaction={transaction}
-                        onUpdate={updateTransaction}
-                        onRemove={removeTransaction}
-                        onToggleFavorite={toggleFavorite}
-                        calculateProfit={calculateProfit}
-                        chaosToDiv={chaosToDiv}
-                        divToChaos={divToChaos}
-                        convertPrice={convertPrice}
-                        getPriceInChaos={getPriceInChaos}
-                        groups={groups}
-                        divineToChaoRate={divineToChaoRate}
+                {/* Export Tab */}
+                {activeTab === 'export' && (
+                  <div className="space-y-4">
+                    <div className="text-sm text-gray-300">
+                      <p className="mb-2">Xuất tất cả dữ liệu của bạn:</p>
+                      <ul className="list-disc list-inside space-y-1 text-gray-400">
+                        <li>{transactions.length} giao dịch</li>
+                        <li>{groups.length} nhóm</li>
+                        <li>Tỉ giá quy đổi: {userDivineToChaoRate} 🔥</li>
+                        <li>Mùa hiện tại: {selectedLeague}</li>
+                      </ul>
+                    </div>
+
+                    <button
+                      onClick={exportData}
+                      disabled={exportStatus === 'loading'}
+                      className={`w-full py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                        exportStatus === 'loading'
+                          ? 'bg-gray-600 cursor-not-allowed'
+                          : exportStatus === 'success'
+                          ? 'bg-green-600 hover:bg-green-700'
+                          : exportStatus === 'error'
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                    >
+                      {exportStatus === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {exportStatus === 'success' && <Check className="w-4 h-4" />}
+                      {exportStatus === 'error' && <AlertCircle className="w-4 h-4" />}
+                      {exportStatus === 'loading' && 'Đang xuất...'}
+                      {exportStatus === 'success' && 'Xuất thành công!'}
+                      {exportStatus === 'error' && 'Lỗi xuất dữ liệu'}
+                      {exportStatus === 'idle' && (
+                        <>
+                          <Download className="w-4 h-4" />
+                          Xuất dữ liệu
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Import Tab */}
+                {activeTab === 'import' && (
+                  <div className="space-y-4">
+                    <div className="text-sm text-gray-300">
+                      <p className="mb-2">Nhập dữ liệu từ file JSON:</p>
+                      <p className="text-yellow-400 text-xs">
+                        ⚠️ Thao tác này sẽ thay thế toàn bộ dữ liệu hiện tại
+                      </p>
+                    </div>
+
+                    <div
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-gray-500 transition-colors"
+                    >
+                      <Upload className="w-8 h-8 mx-auto mb-4 text-gray-400" />
+                      <p className="text-gray-300 mb-2">Kéo thả file hoặc click để chọn</p>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleFileImport}
+                        className="hidden"
+                        id="file-input"
                       />
-                    ))}
+                      <label
+                        htmlFor="file-input"
+                        className="inline-block bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg cursor-pointer transition-colors"
+                      >
+                        Chọn file JSON
+                      </label>
+                    </div>
+
+                    {importStatus === 'loading' && (
+                      <div className="flex items-center justify-center gap-2 text-blue-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xử lý...</span>
+                      </div>
+                    )}
+
+                    {importStatus === 'success' && (
+                      <div className="flex items-center gap-2 text-green-400">
+                        <Check className="w-4 h-4" />
+                        <span>Nhập dữ liệu thành công!</span>
+                      </div>
+                    )}
+
+                    {importStatus === 'error' && (
+                      <div className="flex items-start gap-2 text-red-400">
+                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p>Lỗi nhập dữ liệu:</p>
+                          <p className="text-sm">{importError}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            );
-          })}
-
-          {/* Ungrouped Transactions */}
-          {groupedTransactions.ungrouped.length > 0 && (
-            <div className="space-y-4">
-              {groups.length > 0 && (
-                <div className="flex items-center space-x-2 text-slate-400">
-                  <Folder className="w-5 h-5" />
-                  <h3 className="text-lg font-semibold">Không có nhóm ({groupedTransactions.ungrouped.length})</h3>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {groupedTransactions.ungrouped.map((transaction) => (
-                  <TransactionCard
-                    key={transaction.id}
-                    transaction={transaction}
-                    onUpdate={updateTransaction}
-                    onRemove={removeTransaction}
-                    onToggleFavorite={toggleFavorite}
-                    calculateProfit={calculateProfit}
-                    chaosToDiv={chaosToDiv}
-                    divToChaos={divToChaos}
-                    convertPrice={convertPrice}
-                    getPriceInChaos={getPriceInChaos}
-                    groups={groups}
-                    divineToChaoRate={divineToChaoRate}
-                  />
-                ))}
-              </div>
             </div>
-          )}
-        </div>
-
-        {/* Empty State */}
-        {transactions.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Coins className="w-8 h-8 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-medium text-slate-300 mb-2">Chưa có giao dịch nào</h3>
-            <p className="text-slate-400 mb-4">Bắt đầu bằng cách thêm giao dịch đầu tiên của bạn</p>
-            <button
-              onClick={() => addTransaction()}
-              className="inline-flex items-center space-x-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-slate-900 px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Thêm giao dịch</span>
-            </button>
-          </div>
-        )}
-
-        {/* No Search Results */}
-        {transactions.length > 0 && getSortedTransactions().length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-medium text-slate-300 mb-2">Không tìm thấy giao dịch</h3>
-            <p className="text-slate-400 mb-4">Thử tìm kiếm với từ khóa khác</p>
-            <button
-              onClick={() => setSearchTerm('')}
-              className="text-yellow-400 hover:text-yellow-300 font-medium"
-            >
-              Xóa bộ lọc
-            </button>
           </div>
         )}
       </div>
-
-      {/* Export/Import Modal */}
-      {showDataModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-700">
-              <h2 className="text-xl font-semibold text-white">Quản lý dữ liệu</h2>
-              <button
-                onClick={() => {
-                  setShowDataModal(false);
-                  setImportStatus('idle');
-                  setImportError('');
-                }}
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Tabs */}
-            <div className="flex border-b border-slate-700">
-              <button
-                onClick={() => setModalTab('export')}
-                className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  modalTab === 'export'
-                    ? 'text-green-400 border-b-2 border-green-400 bg-green-400/5'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Download className="w-4 h-4" />
-                  <span>Xuất dữ liệu</span>
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setModalTab('import');
-                  setImportStatus('idle');
-                  setImportError('');
-                }}
-                className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  modalTab === 'import'
-                    ? 'text-purple-400 border-b-2 border-purple-400 bg-purple-400/5'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Upload className="w-4 h-4" />
-                  <span>Nhập dữ liệu</span>
-                </div>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {modalTab === 'export' ? (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <FileText className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-white mb-2">Xuất dữ liệu</h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                      Tải xuống tất cả giao dịch và nhóm của bạn dưới dạng file JSON
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-700/30 rounded-lg p-4 text-sm text-slate-300">
-                    <div className="flex justify-between mb-2">
-                      <span>Số giao dịch:</span>
-                      <span className="font-medium">{transactions.length}</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                      <span>Số nhóm:</span>
-                      <span className="font-medium">{groups.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tỷ giá hiện tại:</span>
-                      <span className="font-medium">{divineToChaoRate} Chaos/Divine</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={exportData}
-                    disabled={isExporting}
-                    className="w-full bg-green-600 hover:bg-green-500 disabled:bg-green-600/50 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-                  >
-                    {isExporting ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Đang xuất...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>Tải xuống</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <Upload className="w-12 h-12 text-purple-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-white mb-2">Nhập dữ liệu</h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                      Chọn file JSON đã xuất trước đó để khôi phục dữ liệu
-                    </p>
-                  </div>
-
-                  {/* Import Status */}
-                  {importStatus === 'success' && (
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center space-x-3">
-                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      <div className="text-green-400 text-sm">
-                        Dữ liệu đã được nhập thành công!
-                      </div>
-                    </div>
-                  )}
-
-                  {importStatus === 'error' && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start space-x-3">
-                      <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                      <div className="text-red-400 text-sm">
-                        <div className="font-medium mb-1">Lỗi nhập dữ liệu</div>
-                        <div>{importError}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* File Upload */}
-                  <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-purple-400/50 transition-colors">
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleFileUpload}
-                      disabled={isImporting}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className={`cursor-pointer ${isImporting ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                      <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                      <div className="text-slate-300 font-medium mb-1">
-                        {isImporting ? 'Đang xử lý...' : 'Chọn file JSON'}
-                      </div>
-                      <div className="text-slate-400 text-sm">
-                        Kéo thả hoặc click để chọn file
-                      </div>
-                    </label>
-                  </div>
-
-                  {isImporting && (
-                    <div className="flex items-center justify-center space-x-2 text-purple-400">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Đang nhập dữ liệu...</span>
-                    </div>
-                  )}
-
-                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 text-yellow-400 text-sm">
-                    <div className="font-medium mb-1">⚠️ Lưu ý quan trọng</div>
-                    <div>Việc nhập dữ liệu sẽ thay thế hoàn toàn dữ liệu hiện tại. Hãy xuất dữ liệu hiện tại trước khi nhập.</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
-
-// Transaction Card Component
-interface TransactionCardProps {
-  transaction: Transaction;
-  onUpdate: (id: string, field: keyof Transaction, value: string | number | boolean) => void;
-  onRemove: (id: string) => void;
-  onToggleFavorite: (id: string) => void;
-  calculateProfit: (transaction: Transaction) => { profit: number; profitPercentage: number };
-  chaosToDiv: (chaosAmount: number) => number;
-  divToChaos: (divAmount: number) => number;
-  convertPrice: (price: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine') => number;
-  getPriceInChaos: (price: number, currency: 'chaos' | 'divine') => number;
-  groups: TransactionGroup[];
-  divineToChaoRate: number;
-}
-
-function TransactionCard({ 
-  transaction, 
-  onUpdate, 
-  onRemove, 
-  onToggleFavorite, 
-  calculateProfit, 
-  chaosToDiv,
-  divToChaos,
-  convertPrice,
-  getPriceInChaos,
-  groups,
-  divineToChaoRate
-}: TransactionCardProps) {
-  const { profit, profitPercentage } = calculateProfit(transaction);
-  const isProfit = profit >= 0;
-  const [profitDisplayCurrency, setProfitDisplayCurrency] = useState<'chaos' | 'divine'>('chaos');
-
-  const toggleBuyPriceCurrency = () => {
-    const newCurrency = transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos';
-    const convertedPrice = convertPrice(transaction.buyPrice, transaction.buyPriceCurrency, newCurrency);
-    onUpdate(transaction.id, 'buyPrice', convertedPrice);
-    onUpdate(transaction.id, 'buyPriceCurrency', newCurrency);
-  };
-
-  const toggleSellPriceCurrency = () => {
-    const newCurrency = transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos';
-    const convertedPrice = convertPrice(transaction.sellPrice, transaction.sellPriceCurrency, newCurrency);
-    onUpdate(transaction.id, 'sellPrice', convertedPrice);
-    onUpdate(transaction.id, 'sellPriceCurrency', newCurrency);
-  };
-
-  const getBuyTotalInChaos = () => {
-    return transaction.buyQuantity * getPriceInChaos(transaction.buyPrice, transaction.buyPriceCurrency);
-  };
-
-  const getSellTotalInChaos = () => {
-    return transaction.sellQuantity * getPriceInChaos(transaction.sellPrice, transaction.sellPriceCurrency);
-  };
-
-  const getProfitInDisplayCurrency = () => {
-    return profitDisplayCurrency === 'chaos' ? profit : chaosToDiv(profit);
-  };
-
-  return (
-    <div className={`bg-slate-800/50 backdrop-blur-sm rounded-xl border p-6 hover:border-slate-600/50 transition-all duration-200 hover:shadow-lg ${
-      transaction.isFavorite ? 'border-yellow-400/50 ring-1 ring-yellow-400/20' : 'border-slate-700/50'
-    }`}>
-      {/* Transaction Header */}
-      <div className="flex items-center justify-between mb-4">
-        <input
-          type="text"
-          value={transaction.name}
-          onChange={(e) => onUpdate(transaction.id, 'name', e.target.value)}
-          className="text-lg font-semibold text-white bg-transparent border-b border-slate-600 focus:border-yellow-400 focus:outline-none pb-1 flex-1 mr-2"
-        />
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={() => onToggleFavorite(transaction.id)}
-            className={`p-2 rounded-lg transition-colors ${
-              transaction.isFavorite 
-                ? 'text-yellow-400 hover:text-yellow-300 bg-yellow-400/10' 
-                : 'text-slate-400 hover:text-yellow-400 hover:bg-yellow-400/10'
-            }`}
-            title={transaction.isFavorite ? 'Bỏ yêu thích' : 'Đánh dấu yêu thích'}
-          >
-            <Star className={`w-4 h-4 ${transaction.isFavorite ? 'fill-current' : ''}`} />
-          </button>
-          <button
-            onClick={() => onRemove(transaction.id)}
-            className="text-red-400 hover:text-red-300 hover:bg-red-400/10 p-2 rounded-lg transition-colors"
-            title="Xóa giao dịch"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Group Selection */}
-      <div className="mb-4">
-        <label className="text-xs text-slate-400 block mb-1">Nhóm</label>
-        <select
-          value={transaction.groupId || ''}
-          onChange={(e) => onUpdate(transaction.id, 'groupId', e.target.value || null)}
-          className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-        >
-          <option value="">Không có nhóm</option>
-          {groups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Buy Section */}
-      <div className="mb-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-2">Mua vào</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
-            <input
-              type="number"
-              value={transaction.buyQuantity}
-              onChange={(e) => onUpdate(transaction.id, 'buyQuantity', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-400">Giá/đơn vị</label>
-              <button
-                onClick={toggleBuyPriceCurrency}
-                className="flex items-center space-x-1 text-xs text-slate-400 hover:text-yellow-400 transition-colors"
-                title="Chuyển đổi đơn vị"
-              >
-                <img src={CURRENCY_IMAGES[transaction.buyPriceCurrency]} alt={`${transaction.buyPriceCurrency} Orb`} className="w-3 h-3" />
-                <ArrowUpDown className="w-3 h-3" />
-              </button>
-            </div>
-            <input
-              type="number"
-              step={transaction.buyPriceCurrency === 'divine' ? '0.001' : '1'}
-              value={transaction.buyPrice}
-              onChange={(e) => onUpdate(transaction.id, 'buyPrice', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-            {transaction.buyPrice > 0 && (
-              <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-                <span>≈ {transaction.buyPriceCurrency === 'chaos' ? chaosToDiv(transaction.buyPrice).toFixed(4) : divToChaos(transaction.buyPrice).toFixed(2)}</span>
-                <img src={CURRENCY_IMAGES[transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-slate-400 flex items-center space-x-1">
-          <span>Tổng: {getBuyTotalInChaos().toFixed(2)}</span>
-          <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-3 h-3" />
-          {getBuyTotalInChaos() > 0 && (
-            <>
-              <span>(≈ {chaosToDiv(getBuyTotalInChaos()).toFixed(3)}</span>
-              <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-3 h-3" />
-              <span>)</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Sell Section */}
-      <div className="mb-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-2">Bán ra</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
-            <input
-              type="number"
-              value={transaction.sellQuantity}
-              onChange={(e) => onUpdate(transaction.id, 'sellQuantity', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-400">Giá/đơn vị</label>
-              <button
-                onClick={toggleSellPriceCurrency}
-                className="flex items-center space-x-1 text-xs text-slate-400 hover:text-yellow-400 transition-colors"
-                title="Chuyển đổi đơn vị"
-              >
-                <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency]} alt={`${transaction.sellPriceCurrency} Orb`} className="w-3 h-3" />
-                <ArrowUpDown className="w-3 h-3" />
-              </button>
-            </div>
-            <input
-              type="number"
-              step={transaction.sellPriceCurrency === 'divine' ? '0.001' : '1'}
-              value={transaction.sellPrice}
-              onChange={(e) => onUpdate(transaction.id, 'sellPrice', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-            {transaction.sellPrice > 0 && (
-              <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-                <span>≈ {transaction.sellPriceCurrency === 'chaos' ? chaosToDiv(transaction.sellPrice).toFixed(4) : divToChaos(transaction.sellPrice).toFixed(2)}</span>
-                <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-slate-400 flex items-center space-x-1">
-          <span>Tổng: {getSellTotalInChaos().toFixed(2)}</span>
-          <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-3 h-3" />
-          {getSellTotalInChaos() > 0 && (
-            <>
-              <span>(≈ {chaosToDiv(getSellTotalInChaos()).toFixed(3)}</span>
-              <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-3 h-3" />
-              <span>)</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Profit/Loss Section */}
-      <div className={`rounded-lg p-4 ${isProfit ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-2">
-            {isProfit ? (
-              <TrendingUp className="w-4 h-4 text-green-400" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-red-400" />
-            )}
-            <span className={`text-sm font-medium ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-              {isProfit ? 'Lợi nhuận' : 'Lỗ'}
-            </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`text-sm font-bold ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-              {profitPercentage.toFixed(2)}%
-            </div>
-            <button
-              onClick={() => setProfitDisplayCurrency(profitDisplayCurrency === 'chaos' ? 'divine' : 'chaos')}
-              className={`text-xs ${isProfit ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'} transition-colors`}
-              title="Chuyển đổi đơn vị"
-            >
-              <ArrowUpDown className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-        <div className={`text-lg font-bold flex items-center space-x-1 ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-          <span>{isProfit ? '+' : ''}{getProfitInDisplayCurrency().toFixed(profitDisplayCurrency === 'chaos' ? 2 : 3)}</span>
-          <img src={CURRENCY_IMAGES[profitDisplayCurrency]} alt={`${profitDisplayCurrency} Orb`} className="w-4 h-4" />
-        </div>
-        <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-          <span>≈ {profitDisplayCurrency === 'chaos' ? chaosToDiv(profit).toFixed(3) : divToChaos(chaosToDiv(profit)).toFixed(2)}</span>
-          <img src={CURRENCY_IMAGES[profitDisplayCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${profitDisplayCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-        </div>
-      </div>
-    </div>
-  );
-}
+};
 
 export default App;
