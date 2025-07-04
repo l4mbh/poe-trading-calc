@@ -89,7 +89,7 @@ export default function HomePage() {
   const [importError, setImportError] = useState<string>("");
 
   // Sidebar state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(true);
 
   // Action buttons collapsed state
   const [isActionsCollapsed, setIsActionsCollapsed] = useState<boolean>(true);
@@ -120,7 +120,7 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error migrating data:", error);
     }
-  }, []);
+  }, [transactions]);
 
   // Load API rate on component mount and when league changes
   useEffect(() => {
@@ -374,20 +374,20 @@ export default function HomePage() {
     return { profit, profitPercentage };
   };
 
-  const getTotalProfit = () => {
-    const filteredTransactions = getFilteredTransactions();
-    const totalProfitInChaos = filteredTransactions.reduce(
-      (total, transaction) => {
-        const { profit } = calculateProfit(transaction);
-        return total + profit;
-      },
-      0
-    );
+//   const getTotalProfit = () => {
+//     const filteredTransactions = getFilteredTransactions();
+//     const totalProfitInChaos = filteredTransactions.reduce(
+//       (total, transaction) => {
+//         const { profit } = calculateProfit(transaction);
+//         return total + profit;
+//       },
+//       0
+//     );
 
-    return totalProfitCurrency === "chaos"
-      ? totalProfitInChaos
-      : chaosToDivFn(totalProfitInChaos);
-  };
+//     return totalProfitCurrency === "chaos"
+//       ? totalProfitInChaos
+//       : chaosToDivFn(totalProfitInChaos);
+//   };
 
   const getTotalProfitByFilter = (filter: "all" | "selected" | string) => {
     let transactionsToCalculate: Transaction[];
