@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Coins, Search, Folder, FolderOpen, Edit3, Check, X, Download, Upload } from 'lucide-react';
+import { Plus, Trash2, Coins, Search, Folder, FolderOpen, Edit3, Check, X, Download, Upload, Settings } from 'lucide-react';
 
 import { Transaction, TransactionGroup, ExportData, LegacyTransaction } from './types';
 import { STORAGE_KEYS, GROUP_COLORS, POE_LEAGUES } from './utils/constants';
@@ -41,6 +41,12 @@ function App() {
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importError, setImportError] = useState<string>('');
+
+  // Sidebar state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  
+  // Action buttons collapsed state
+  const [isActionsCollapsed, setIsActionsCollapsed] = useState<boolean>(true);
 
   // Migrate old data on component mount
   useEffect(() => {
@@ -148,6 +154,10 @@ function App() {
     } else {
       showInfoToast('Đã tắt API calls. Chỉ sử dụng tỷ giá thủ công.');
     }
+  };
+
+  const handleSidebarToggle = (isCollapsed: boolean) => {
+    setIsSidebarCollapsed(isCollapsed);
   };
 
   const addTransaction = (groupId: string | null = null) => {
@@ -494,19 +504,23 @@ function App() {
         groups={groups}
         profitFilter={profitFilter}
         onProfitFilterChange={setProfitFilter}
+        onSidebarToggle={handleSidebarToggle}
       />
 
-      {/* Main Content with Left Margin */}
-      <div className="ml-72">
+      {/* Main Content with Dynamic Left Margin */}
+      <div className={`transition-all duration-300 ${isSidebarCollapsed ? 'ml-24' : 'ml-72'}`}>
         {/* Header */}
-        <Header />
+        <Header 
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
 
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Controls Section */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          {/* Left side controls */}
-          <div className="flex items-center space-x-4 flex-wrap gap-2">
+          {/* Main action button - always visible */}
+          <div className="flex items-center space-x-4">
             <button
               onClick={() => addTransaction()}
               className="group flex items-center space-x-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-slate-900 px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
@@ -515,60 +529,60 @@ function App() {
               <span>Thêm giao dịch</span>
             </button>
 
+            {/* Toggle button for secondary actions */}
             <button
-              onClick={() => setShowGroupForm(!showGroupForm)}
-              className="flex items-center space-x-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-blue-600/30"
+              onClick={() => setIsActionsCollapsed(!isActionsCollapsed)}
+              className="flex items-center space-x-2 bg-slate-600/20 hover:bg-slate-600/30 text-slate-400 hover:text-slate-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-slate-600/30"
             >
-              <Folder className="w-4 h-4" />
-              <span>Tạo nhóm</span>
+              <Settings className="w-4 h-4" />
+              <span>{isActionsCollapsed ? 'Hiện thêm' : 'Ẩn bớt'}</span>
             </button>
+          </div>
 
-            <button
-              onClick={() => {
-                setShowDataModal(true);
-                setModalTab('export');
-              }}
-              className="flex items-center space-x-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 hover:text-green-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-green-600/30"
-            >
-              <Download className="w-4 h-4" />
-              <span>Xuất dữ liệu</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowDataModal(true);
-                setModalTab('import');
-              }}
-              className="flex items-center space-x-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-purple-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-purple-600/30"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Nhập dữ liệu</span>
-            </button>
-
-            {transactions.length > 0 && (
+          {/* Secondary actions - collapsible */}
+          {!isActionsCollapsed && (
+            <div className="flex items-center space-x-4 flex-wrap gap-2">
               <button
-                onClick={clearAllData}
-                className="flex items-center space-x-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-red-600/30"
+                onClick={() => setShowGroupForm(!showGroupForm)}
+                className="flex items-center space-x-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-blue-600/30"
               >
-                <Trash2 className="w-4 h-4" />
-                <span>Xóa tất cả</span>
+                <Folder className="w-4 h-4" />
+                <span>Tạo nhóm</span>
               </button>
-            )}
-          </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-80">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
+              <button
+                onClick={() => {
+                  setShowDataModal(true);
+                  setModalTab('export');
+                }}
+                className="flex items-center space-x-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 hover:text-green-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-green-600/30"
+              >
+                <Download className="w-4 h-4" />
+                <span>Xuất dữ liệu</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowDataModal(true);
+                  setModalTab('import');
+                }}
+                className="flex items-center space-x-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-purple-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-purple-600/30"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Nhập dữ liệu</span>
+              </button>
+
+              {transactions.length > 0 && (
+                <button
+                  onClick={clearAllData}
+                  className="flex items-center space-x-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 px-4 py-3 rounded-lg font-medium transition-all duration-200 border border-red-600/30"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Xóa tất cả</span>
+                </button>
+              )}
             </div>
-            <input
-              type="text"
-              placeholder="Tìm kiếm giao dịch..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-            />
-          </div>
+          )}
         </div>
 
         {/* Group Creation Form */}
@@ -822,8 +836,8 @@ function App() {
 
         {/* Toast Provider */}
         <ToastProvider />
+        </div>
       </div>
-    </div>
   );
 }
 
