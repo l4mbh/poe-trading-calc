@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trash2, TrendingUp, TrendingDown, Star, ArrowUpDown, RotateCcw } from 'lucide-react';
 import { TransactionCardProps } from '../types';
 import { CURRENCY_IMAGES, STORAGE_KEYS } from '../utils/constants';
@@ -21,6 +21,7 @@ export function TransactionCard({
   const isProfit = profit >= 0;
   const [profitDisplayCurrency, setProfitDisplayCurrency] = useLocalStorage<'chaos' | 'divine'>(STORAGE_KEYS.PROFIT_DISPLAY_CURRENCY, 'chaos');
   const [sellPriceMode, setSellPriceMode] = useLocalStorage<'unit' | 'total'>(STORAGE_KEYS.SELL_PRICE_MODE, 'unit'); // 'unit' = giá đơn vị, 'total' = tổng giá
+  const [resetKey, setResetKey] = useState(0); // Key để force re-render input fields khi reset
 
   const toggleBuyPriceCurrency = () => {
     const newCurrency = transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos';
@@ -169,6 +170,7 @@ export function TransactionCard({
     onUpdate(transaction.id, 'buyPrice', 0);
     onUpdate(transaction.id, 'sellQuantity', 0);
     onUpdate(transaction.id, 'sellPrice', 0);
+    setResetKey(prev => prev + 1); // Force re-render input fields
     showSuccessToast('Đã reset các trường mua vào và bán ra');
   };
 
@@ -280,7 +282,7 @@ export function TransactionCard({
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
             <input
               type="text"
-              key={`buyQuantity-${transaction.buyQuantity}`}
+              key={`buyQuantity-${transaction.buyQuantity}-${resetKey}`}
               defaultValue={formatDisplayValue(transaction.buyQuantity)}
               onBlur={(e) => {
                 const result = parseNumberFromInput(e.target.value);
@@ -308,7 +310,7 @@ export function TransactionCard({
             </div>
             <input
               type="text"
-              key={`buyPrice-${transaction.buyPrice}`}
+              key={`buyPrice-${transaction.buyPrice}-${resetKey}`}
               defaultValue={formatDisplayValue(transaction.buyPrice)}
               onBlur={(e) => {
                 handleBuyPriceChange(e.target.value);
@@ -365,7 +367,7 @@ export function TransactionCard({
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
             <input
               type="text"
-              key={`sellQuantity-${transaction.sellQuantity}`}
+              key={`sellQuantity-${transaction.sellQuantity}-${resetKey}`}
               defaultValue={formatDisplayValue(transaction.sellQuantity)}
               onBlur={(e) => {
                 const result = parseNumberFromInput(e.target.value);
@@ -395,7 +397,7 @@ export function TransactionCard({
             </div>
             <input
               type="text"
-              key={`sellPrice-${transaction.sellPrice}-${sellPriceMode}`}
+              key={`sellPrice-${transaction.sellPrice}-${sellPriceMode}-${resetKey}`}
               defaultValue={getSellInputValue()}
               onBlur={(e) => {
                 handleSellPriceChange(e.target.value);
