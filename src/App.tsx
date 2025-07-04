@@ -172,7 +172,7 @@ const App: React.FC = () => {
     setIsLoadingRate(true);
     try {
       const response = await fetch(
-        `https://poe.ninja/api/data/currencyoverview?league=${selectedLeague}&type=Currency`
+        `/poe-ninja-api/data/currencyoverview?league=${selectedLeague}&type=Currency`
       );
       
       if (!response.ok) {

@@ -7,4 +7,14 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    proxy: {
+      '/poe-ninja-api': {
+        target: 'https://poe.ninja/api',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/poe-ninja-api/, ''),
+        secure: true,
+      },
+    },
+  },
 });
