@@ -23,14 +23,15 @@ function App() {
   const [newGroupName, setNewGroupName] = useState<string>('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string>('');
-  const [totalProfitCurrency, setTotalProfitCurrency] = useState<'chaos' | 'divine'>('chaos');
+  const [totalProfitCurrency, setTotalProfitCurrency] = useLocalStorage<'chaos' | 'divine'>(STORAGE_KEYS.TOTAL_PROFIT_CURRENCY, 'chaos');
+  const [profitFilter, setProfitFilter] = useLocalStorage<'all' | 'selected' | string>(STORAGE_KEYS.PROFIT_FILTER, 'all');
   
   // New states for API integration
   const [selectedLeague, setSelectedLeague] = useLocalStorage<string>(STORAGE_KEYS.SELECTED_LEAGUE, POE_LEAGUES[0]);
   const [apiRate, setApiRate] = useLocalStorage<number | null>(STORAGE_KEYS.API_RATE, null);
   const [apiLastUpdated, setApiLastUpdated] = useLocalStorage<Date | null>(STORAGE_KEYS.API_LAST_UPDATED, null);
   const [isLoadingApiRate, setIsLoadingApiRate] = useState<boolean>(false);
-  const [enableApiCalls, setEnableApiCalls] = useLocalStorage<boolean>('poe-enable-api-calls', true);
+  const [enableApiCalls, setEnableApiCalls] = useLocalStorage<boolean>(STORAGE_KEYS.ENABLE_API_CALLS, true);
   
   // Export/Import modal states
   const [showDataModal, setShowDataModal] = useState<boolean>(false);
@@ -274,6 +275,26 @@ function App() {
     return totalProfitCurrency === 'chaos' ? totalProfitInChaos : chaosToDivFn(totalProfitInChaos);
   };
 
+  const getTotalProfitByFilter = (filter: 'all' | 'selected' | string) => {
+    let transactionsToCalculate: Transaction[];
+    
+    if (filter === 'all') {
+      transactionsToCalculate = getFilteredTransactions();
+    } else if (filter === 'selected') {
+      transactionsToCalculate = getFilteredTransactions().filter(t => t.isSelected);
+    } else {
+      // Filter by group ID
+      transactionsToCalculate = getFilteredTransactions().filter(t => t.groupId === filter);
+    }
+    
+    const totalProfitInChaos = transactionsToCalculate.reduce((total, transaction) => {
+      const { profit } = calculateProfit(transaction);
+      return total + profit;
+    }, 0);
+    
+    return totalProfitCurrency === 'chaos' ? totalProfitInChaos : chaosToDivFn(totalProfitInChaos);
+  };
+
   const getFilteredTransactions = () => {
     return transactions.filter(transaction =>
       transaction.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -335,7 +356,11 @@ function App() {
         groups,
         divineToChaoRate,
         exportDate: new Date().toISOString(),
-        version: '1.0'
+        version: '1.0',
+        profitFilter,
+        totalProfitCurrency,
+        selectedLeague,
+        enableApiCalls
       };
 
       const dataStr = JSON.stringify(exportData, null, 2);
@@ -395,6 +420,23 @@ function App() {
         setDivineToChaoRate(importedData.divineToChaoRate);
       }
 
+      // Restore user settings if available
+      if (importedData.profitFilter !== undefined) {
+        setProfitFilter(importedData.profitFilter);
+      }
+      
+      if (importedData.totalProfitCurrency !== undefined) {
+        setTotalProfitCurrency(importedData.totalProfitCurrency);
+      }
+
+      if (importedData.selectedLeague !== undefined) {
+        setSelectedLeague(importedData.selectedLeague);
+      }
+
+      if (importedData.enableApiCalls !== undefined) {
+        setEnableApiCalls(importedData.enableApiCalls);
+      }
+
       setImportStatus('success');
       showSuccessToast(TOAST_MESSAGES.DATA_IMPORTED);
       
@@ -436,6 +478,7 @@ function App() {
         divineToChaoRate={divineToChaoRate}
         totalProfitCurrency={totalProfitCurrency}
         getTotalProfit={getTotalProfit}
+        getTotalProfitByFilter={getTotalProfitByFilter}
         chaosToDiv={chaosToDivFn}
         divToChaos={divToChaosFn}
         onUpdateExchangeRate={updateExchangeRate}
@@ -448,6 +491,9 @@ function App() {
         onLeagueChange={handleLeagueChange}
         onManualRateChange={handleManualRateChange}
         onToggleApiCalls={handleToggleApiCalls}
+        groups={groups}
+        profitFilter={profitFilter}
+        onProfitFilterChange={setProfitFilter}
       />
 
       {/* Main Content */}

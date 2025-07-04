@@ -9,6 +9,7 @@ export interface Transaction {
   groupId: string | null;
   buyPriceCurrency: 'chaos' | 'divine';
   sellPriceCurrency: 'chaos' | 'divine';
+  isSelected?: boolean;
 }
 
 export interface TransactionGroup {
@@ -24,6 +25,10 @@ export interface ExportData {
   divineToChaoRate: number;
   exportDate: string;
   version: string;
+  profitFilter?: 'all' | 'selected' | string;
+  totalProfitCurrency?: 'chaos' | 'divine';
+  selectedLeague?: string;
+  enableApiCalls?: boolean;
 }
 
 export interface TransactionCardProps {

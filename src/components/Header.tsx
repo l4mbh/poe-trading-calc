@@ -8,6 +8,7 @@ interface HeaderProps {
   divineToChaoRate: number;
   totalProfitCurrency: 'chaos' | 'divine';
   getTotalProfit: () => number;
+  getTotalProfitByFilter: (filter: 'all' | 'selected' | string) => number;
   chaosToDiv: (chaosAmount: number) => number;
   divToChaos: (divAmount: number) => number;
   onUpdateExchangeRate: () => void;
@@ -20,12 +21,15 @@ interface HeaderProps {
   onLeagueChange: (league: string) => void;
   onManualRateChange: (rate: number) => void;
   onToggleApiCalls: () => void;
+  groups: Array<{id: string; name: string; color: string}>;
+  profitFilter: 'all' | 'selected' | string;
+  onProfitFilterChange: (filter: 'all' | 'selected' | string) => void;
 }
 
 export function Header({
   divineToChaoRate,
   totalProfitCurrency,
-  getTotalProfit,
+  getTotalProfitByFilter,
   chaosToDiv,
   divToChaos,
   onUpdateExchangeRate,
@@ -37,7 +41,10 @@ export function Header({
   enableApiCalls,
   onLeagueChange,
   onManualRateChange,
-  onToggleApiCalls
+  onToggleApiCalls,
+  groups,
+  profitFilter,
+  onProfitFilterChange
 }: HeaderProps) {
   const [showLeagueDropdown, setShowLeagueDropdown] = useState(false);
   const [leagueInput, setLeagueInput] = useState(selectedLeague);
@@ -281,7 +288,7 @@ export function Header({
 
             {/* Total Profit */}
             <div className="bg-slate-700/50 rounded-lg px-4 py-3 border border-slate-600">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-medium text-slate-300">Tổng lợi nhuận</div>
                 <button
                   onClick={onToggleTotalProfitCurrency}
@@ -291,12 +298,30 @@ export function Header({
                   <ArrowUpDown className="w-3 h-3" />
                 </button>
               </div>
-              <div className={`text-lg font-bold flex items-center space-x-1 ${getTotalProfit() >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                <span>{getTotalProfit().toFixed(totalProfitCurrency === 'chaos' ? 2 : 3)}</span>
+              
+              {/* Profit Filter */}
+              <div className="mb-2">
+                <select
+                  value={profitFilter}
+                  onChange={(e) => onProfitFilterChange(e.target.value)}
+                  className="w-full bg-slate-800/50 text-slate-300 text-xs rounded px-2 py-1 border border-slate-600 focus:border-yellow-400 focus:outline-none"
+                >
+                  <option value="all">Tất cả giao dịch</option>
+                  <option value="selected">Giao dịch được chọn</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      Nhóm: {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className={`text-lg font-bold flex items-center space-x-1 ${getTotalProfitByFilter(profitFilter) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <span>{getTotalProfitByFilter(profitFilter).toFixed(totalProfitCurrency === 'chaos' ? 2 : 3)}</span>
                 <img src={CURRENCY_IMAGES[totalProfitCurrency]} alt={`${totalProfitCurrency} Orb`} className="w-4 h-4" />
               </div>
               <div className="text-xs text-slate-400 flex items-center space-x-1">
-                <span>≈ {totalProfitCurrency === 'chaos' ? chaosToDiv(getTotalProfit()).toFixed(3) : divToChaos(getTotalProfit()).toFixed(2)}</span>
+                <span>≈ {totalProfitCurrency === 'chaos' ? chaosToDiv(getTotalProfitByFilter(profitFilter)).toFixed(3) : divToChaos(getTotalProfitByFilter(profitFilter)).toFixed(2)}</span>
                 <img src={CURRENCY_IMAGES[totalProfitCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${totalProfitCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
               </div>
             </div>

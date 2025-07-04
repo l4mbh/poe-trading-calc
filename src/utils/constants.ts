@@ -5,7 +5,12 @@ export const STORAGE_KEYS = {
   LAST_UPDATED: 'poe-rate-last-updated',
   SELECTED_LEAGUE: 'poe-selected-league',
   API_RATE: 'poe-api-rate',
-  API_LAST_UPDATED: 'poe-api-last-updated'
+  API_LAST_UPDATED: 'poe-api-last-updated',
+  PROFIT_FILTER: 'poe-profit-filter',
+  TOTAL_PROFIT_CURRENCY: 'poe-total-profit-currency',
+  SELL_PRICE_MODE: 'poe-sell-price-mode',
+  PROFIT_DISPLAY_CURRENCY: 'poe-profit-display-currency',
+  ENABLE_API_CALLS: 'poe-enable-api-calls'
 } as const;
 
 export const GROUP_COLORS = [

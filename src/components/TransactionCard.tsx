@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, TrendingUp, TrendingDown, Star, ArrowUpDown } from 'lucide-react';
+import React from 'react';
+import { Trash2, TrendingUp, TrendingDown, Star, ArrowUpDown } from 'lucide-react';
 import { TransactionCardProps } from '../types';
-import { CURRENCY_IMAGES } from '../utils/constants';
-import { chaosToDiv, divToChaos, convertPrice, getPriceInChaos } from '../utils/currencyUtils';
-import { showSuccessToast, TOAST_MESSAGES } from '../utils/toastUtils';
+import { CURRENCY_IMAGES, STORAGE_KEYS } from '../utils/constants';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import { showSuccessToast } from '../utils/toastUtils';
 
 export function TransactionCard({ 
   transaction, 
@@ -19,7 +19,8 @@ export function TransactionCard({
 }: TransactionCardProps) {
   const { profit, profitPercentage } = calculateProfit(transaction);
   const isProfit = profit >= 0;
-  const [profitDisplayCurrency, setProfitDisplayCurrency] = useState<'chaos' | 'divine'>('chaos');
+  const [profitDisplayCurrency, setProfitDisplayCurrency] = useLocalStorage<'chaos' | 'divine'>(STORAGE_KEYS.PROFIT_DISPLAY_CURRENCY, 'chaos');
+  const [sellPriceMode, setSellPriceMode] = useLocalStorage<'unit' | 'total'>(STORAGE_KEYS.SELL_PRICE_MODE, 'unit'); // 'unit' = giá đơn vị, 'total' = tổng giá
 
   const toggleBuyPriceCurrency = () => {
     const newCurrency = transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos';
@@ -49,18 +50,118 @@ export function TransactionCard({
     return profitDisplayCurrency === 'chaos' ? profit : chaosToDivFn(profit);
   };
 
+  // Tính toán giá trị để hiển thị trong input dựa trên mode
+  const getSellInputValue = () => {
+    if (sellPriceMode === 'total') {
+      // Hiển thị tổng giá theo currency hiện tại (không convert, giữ nguyên currency)
+      return transaction.sellPrice * transaction.sellQuantity;
+    }
+    return transaction.sellPrice; // Giá đơn vị
+  };
+
+  // Evaluate math expressions (cộng, trừ, nhân, chia)
+  const evaluateExpression = (expression: string): number => {
+    try {
+      // Chỉ cho phép số, dấu +, -, *, /, (, ), dấu cách, và dấu thập phân
+      if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
+        return NaN;
+      }
+      
+      // Replace division symbols cho dễ đọc
+      const normalizedExpression = expression
+        .replace(/÷/g, '/')
+        .replace(/×/g, '*');
+      
+      // Sử dụng Function constructor thay vì eval để an toàn hơn
+      const result = new Function('return ' + normalizedExpression)();
+      
+      if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+        return result;
+      }
+      return NaN;
+    } catch {
+      return NaN;
+    }
+  };
+
+  // Xử lý khi thay đổi giá trị input - hỗ trợ cả số và expression
+  const handleSellPriceChange = (inputValue: string) => {
+    let value: number;
+    
+    // Nếu input chứa operators toán học, evaluate expression
+    if (/[+\-*/÷×()]/.test(inputValue)) {
+      value = evaluateExpression(inputValue);
+      if (isNaN(value)) {
+        // Nếu expression không hợp lệ, không update
+        return;
+      }
+    } else {
+      // Nếu là số bình thường
+      value = Number(inputValue);
+      if (isNaN(value)) return;
+    }
+    
+    if (sellPriceMode === 'total') {
+      // Từ tổng giá tính ra giá đơn vị
+      if (transaction.sellQuantity > 0) {
+        const unitPrice = value / transaction.sellQuantity;
+        onUpdate(transaction.id, 'sellPrice', unitPrice);
+      } else {
+        // Nếu quantity = 0, không thể tính unit price, giữ nguyên
+        onUpdate(transaction.id, 'sellPrice', value);
+      }
+    } else {
+      // Chế độ giá đơn vị
+      onUpdate(transaction.id, 'sellPrice', value);
+    }
+  };
+
+  const toggleSellPriceMode = () => {
+    setSellPriceMode(sellPriceMode === 'unit' ? 'total' : 'unit');
+    showSuccessToast(`Đã chuyển sang chế độ nhập ${sellPriceMode === 'unit' ? 'tổng giá' : 'giá đơn vị'}`);
+  };
+
+  // Xử lý khi thay đổi giá mua - hỗ trợ cả số và expression
+  const handleBuyPriceChange = (inputValue: string) => {
+    let value: number;
+    
+    // Nếu input chứa operators toán học, evaluate expression
+    if (/[+\-*/÷×()]/.test(inputValue)) {
+      value = evaluateExpression(inputValue);
+      if (isNaN(value)) {
+        // Nếu expression không hợp lệ, không update
+        return;
+      }
+    } else {
+      // Nếu là số bình thường
+      value = Number(inputValue);
+      if (isNaN(value)) return;
+    }
+    
+    onUpdate(transaction.id, 'buyPrice', value);
+  };
+
   return (
     <div className={`bg-slate-800/50 backdrop-blur-sm rounded-xl border p-6 hover:border-slate-600/50 transition-all duration-200 hover:shadow-lg ${
       transaction.isFavorite ? 'border-yellow-400/50 ring-1 ring-yellow-400/20' : 'border-slate-700/50'
     }`}>
       {/* Transaction Header */}
       <div className="flex items-center justify-between mb-4">
-        <input
-          type="text"
-          value={transaction.name}
-          onChange={(e) => onUpdate(transaction.id, 'name', e.target.value)}
-          className="text-lg font-semibold text-white bg-transparent border-b border-slate-600 focus:border-yellow-400 focus:outline-none pb-1 flex-1 mr-2"
-        />
+        <div className="flex items-center space-x-3 flex-1">
+          <input
+            type="checkbox"
+            checked={transaction.isSelected || false}
+            onChange={(e) => onUpdate(transaction.id, 'isSelected', e.target.checked)}
+            className="w-4 h-4 text-yellow-400 bg-slate-700 border-slate-600 rounded focus:ring-yellow-400 focus:ring-2"
+            title="Chọn để tính tổng lợi nhuận"
+          />
+          <input
+            type="text"
+            value={transaction.name}
+            onChange={(e) => onUpdate(transaction.id, 'name', e.target.value)}
+            className="text-lg font-semibold text-white bg-transparent border-b border-slate-600 focus:border-yellow-400 focus:outline-none pb-1 flex-1"
+          />
+        </div>
         <div className="flex items-center space-x-1">
           <button
             onClick={() => onToggleFavorite(transaction.id)}
@@ -102,7 +203,12 @@ export function TransactionCard({
 
       {/* Buy Section */}
       <div className="mb-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-2">Mua vào</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-slate-300">Mua vào</h3>
+          <div className="text-xs text-slate-500">
+            <span title="Hỗ trợ tính toán: +, -, *, /, (), 40/30, 100+50">🧮</span>
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
@@ -127,12 +233,11 @@ export function TransactionCard({
               </button>
             </div>
             <input
-              type="number"
-              step={transaction.buyPriceCurrency === 'divine' ? '0.001' : '1'}
+              type="text"
               value={transaction.buyPrice}
-              onChange={(e) => onUpdate(transaction.id, 'buyPrice', Number(e.target.value))}
+              onChange={(e) => handleBuyPriceChange(e.target.value)}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
+              placeholder="Ví dụ: 40/30 hoặc 1.5"
             />
             {transaction.buyPrice > 0 && (
               <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
@@ -157,7 +262,23 @@ export function TransactionCard({
 
       {/* Sell Section */}
       <div className="mb-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-2">Bán ra</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-slate-300">Bán ra</h3>
+          <div className="text-xs text-slate-500">
+            <span title="Hỗ trợ tính toán: +, -, *, /, (), 40/30, 100+50">🧮</span>
+          </div>
+        </div>
+        {/* Mode Toggle Button - Outside of Grid */}
+        <div className="flex justify-center mb-2">
+          <button
+            onClick={toggleSellPriceMode}
+            className="text-xs text-blue-400 hover:text-blue-300 transition-colors px-3 py-1 rounded border border-blue-400/30 hover:border-blue-300/50"
+            title={sellPriceMode === 'unit' ? 'Chuyển sang nhập tổng giá' : 'Chuyển sang nhập giá đơn vị'}
+          >
+            {sellPriceMode === 'unit' ? 'Chế độ: Đơn vị' : 'Chế độ: Tổng giá'}
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
@@ -170,29 +291,43 @@ export function TransactionCard({
             />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-400">Giá/đơn vị</label>
+            <div className="flex items-end justify-between mb-1 w-full">
+              <label className="text-xs text-slate-400">
+                {sellPriceMode === 'unit' ? 'Giá/đơn vị' : 'Tổng giá'}
+              </label>
               <button
                 onClick={toggleSellPriceCurrency}
                 className="flex items-center space-x-1 text-xs text-slate-400 hover:text-yellow-400 transition-colors"
-                title="Chuyển đổi đơn vị"
+                title="Chuyển đổi đơn vị tiền tệ"
               >
                 <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency]} alt={`${transaction.sellPriceCurrency} Orb`} className="w-3 h-3" />
                 <ArrowUpDown className="w-3 h-3" />
               </button>
             </div>
             <input
-              type="number"
-              step={transaction.sellPriceCurrency === 'divine' ? '0.001' : '1'}
-              value={transaction.sellPrice}
-              onChange={(e) => onUpdate(transaction.id, 'sellPrice', Number(e.target.value))}
+              type="text"
+              value={getSellInputValue()}
+              onChange={(e) => handleSellPriceChange(e.target.value)}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
+              placeholder={sellPriceMode === 'total' ? 'Ví dụ: 1000+500 (tổng giá)' : 'Ví dụ: 40/30 (giá đơn vị)'}
             />
-            {transaction.sellPrice > 0 && (
+            {getSellInputValue() > 0 && (
               <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-                <span>≈ {transaction.sellPriceCurrency === 'chaos' ? chaosToDivFn(transaction.sellPrice).toFixed(4) : divToChaosFn(transaction.sellPrice).toFixed(2)}</span>
-                <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
+                {sellPriceMode === 'unit' ? (
+                  <>
+                    <span>≈ {transaction.sellPriceCurrency === 'chaos' ? chaosToDivFn(transaction.sellPrice).toFixed(4) : divToChaosFn(transaction.sellPrice).toFixed(2)}</span>
+                    <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
+                  </>
+                ) : (
+                  transaction.sellQuantity > 0 ? (
+                    <>
+                      <span>Đơn vị: {transaction.sellPrice.toFixed(transaction.sellPriceCurrency === 'divine' ? 4 : 2)}</span>
+                      <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency]} alt={`${transaction.sellPriceCurrency} Orb`} className="w-3 h-3" />
+                    </>
+                  ) : (
+                    <span className="text-orange-400">Cần nhập số lượng để tính giá đơn vị</span>
+                  )
+                )}
               </div>
             )}
           </div>
@@ -247,4 +382,4 @@ export function TransactionCard({
       </div>
     </div>
   );
-} 
+}
