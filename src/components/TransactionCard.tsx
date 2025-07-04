@@ -50,13 +50,25 @@ export function TransactionCard({
     return profitDisplayCurrency === 'chaos' ? profit : chaosToDivFn(profit);
   };
 
+  // Helper function để format số hiển thị (thay thế dấu chấm bằng phẩy và xử lý giá trị 0)
+  const formatDisplayValue = (value: number): string => {
+    if (value === 0) return '';
+    return value.toString().replace('.', ',');
+  };
+
+  // Helper function để parse input từ user (thay thế phẩy bằng chấm)
+  const parseInputValue = (inputValue: string): string => {
+    return inputValue.replace(',', '.');
+  };
+
   // Tính toán giá trị để hiển thị trong input dựa trên mode
   const getSellInputValue = () => {
     if (sellPriceMode === 'total') {
       // Hiển thị tổng giá theo currency hiện tại (không convert, giữ nguyên currency)
-      return transaction.sellPrice * transaction.sellQuantity;
+      const totalValue = transaction.sellPrice * transaction.sellQuantity;
+      return formatDisplayValue(totalValue);
     }
-    return transaction.sellPrice; // Giá đơn vị
+    return formatDisplayValue(transaction.sellPrice); // Giá đơn vị
   };
 
   // Evaluate math expressions (cộng, trừ, nhân, chia)
@@ -86,18 +98,26 @@ export function TransactionCard({
 
   // Xử lý khi thay đổi giá trị input - hỗ trợ cả số và expression
   const handleSellPriceChange = (inputValue: string) => {
+    // Nếu input rỗng, set về 0
+    if (inputValue.trim() === '') {
+      onUpdate(transaction.id, 'sellPrice', 0);
+      return;
+    }
+
+    // Parse input để thay phẩy bằng chấm
+    const normalizedInput = parseInputValue(inputValue);
     let value: number;
     
     // Nếu input chứa operators toán học, evaluate expression
-    if (/[+\-*/÷×()]/.test(inputValue)) {
-      value = evaluateExpression(inputValue);
+    if (/[+\-*/÷×()]/.test(normalizedInput)) {
+      value = evaluateExpression(normalizedInput);
       if (isNaN(value)) {
         // Nếu expression không hợp lệ, không update
         return;
       }
     } else {
       // Nếu là số bình thường
-      value = Number(inputValue);
+      value = Number(normalizedInput);
       if (isNaN(value)) return;
     }
     
@@ -123,18 +143,26 @@ export function TransactionCard({
 
   // Xử lý khi thay đổi giá mua - hỗ trợ cả số và expression
   const handleBuyPriceChange = (inputValue: string) => {
+    // Nếu input rỗng, set về 0
+    if (inputValue.trim() === '') {
+      onUpdate(transaction.id, 'buyPrice', 0);
+      return;
+    }
+
+    // Parse input để thay phẩy bằng chấm
+    const normalizedInput = parseInputValue(inputValue);
     let value: number;
     
     // Nếu input chứa operators toán học, evaluate expression
-    if (/[+\-*/÷×()]/.test(inputValue)) {
-      value = evaluateExpression(inputValue);
+    if (/[+\-*/÷×()]/.test(normalizedInput)) {
+      value = evaluateExpression(normalizedInput);
       if (isNaN(value)) {
         // Nếu expression không hợp lệ, không update
         return;
       }
     } else {
       // Nếu là số bình thường
-      value = Number(inputValue);
+      value = Number(normalizedInput);
       if (isNaN(value)) return;
     }
     
@@ -213,9 +241,17 @@ export function TransactionCard({
           <div>
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
             <input
-              type="number"
-              value={transaction.buyQuantity}
-              onChange={(e) => onUpdate(transaction.id, 'buyQuantity', Number(e.target.value))}
+              type="text"
+              value={formatDisplayValue(transaction.buyQuantity)}
+              onChange={(e) => {
+                const value = parseInputValue(e.target.value);
+                if (value.trim() === '') {
+                  onUpdate(transaction.id, 'buyQuantity', 0);
+                } else {
+                  const numValue = Number(value);
+                  if (!isNaN(numValue)) onUpdate(transaction.id, 'buyQuantity', numValue);
+                }
+              }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
               placeholder="0"
             />
@@ -234,10 +270,10 @@ export function TransactionCard({
             </div>
             <input
               type="text"
-              value={transaction.buyPrice}
+              value={formatDisplayValue(transaction.buyPrice)}
               onChange={(e) => handleBuyPriceChange(e.target.value)}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="Ví dụ: 40/30 hoặc 1.5"
+              placeholder="Ví dụ: 40/30 hoặc 1,5"
             />
             {transaction.buyPrice > 0 && (
               <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
@@ -283,9 +319,17 @@ export function TransactionCard({
           <div>
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
             <input
-              type="number"
-              value={transaction.sellQuantity}
-              onChange={(e) => onUpdate(transaction.id, 'sellQuantity', Number(e.target.value))}
+              type="text"
+              value={formatDisplayValue(transaction.sellQuantity)}
+              onChange={(e) => {
+                const value = parseInputValue(e.target.value);
+                if (value.trim() === '') {
+                  onUpdate(transaction.id, 'sellQuantity', 0);
+                } else {
+                  const numValue = Number(value);
+                  if (!isNaN(numValue)) onUpdate(transaction.id, 'sellQuantity', numValue);
+                }
+              }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
               placeholder="0"
             />
@@ -309,9 +353,9 @@ export function TransactionCard({
               value={getSellInputValue()}
               onChange={(e) => handleSellPriceChange(e.target.value)}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder={sellPriceMode === 'total' ? 'Ví dụ: 1000+500 (tổng giá)' : 'Ví dụ: 40/30 (giá đơn vị)'}
+              placeholder={sellPriceMode === 'total' ? 'Ví dụ: 1000+500 (tổng giá)' : 'Ví dụ: 40/30 hoặc 1,5'}
             />
-            {getSellInputValue() > 0 && (
+            {transaction.sellPrice > 0 && (
               <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
                 {sellPriceMode === 'unit' ? (
                   <>
