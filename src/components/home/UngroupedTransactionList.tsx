@@ -14,6 +14,9 @@ interface UngroupedTransactionListProps {
   divToChaos: (divAmount: number) => number;
   convertPrice: (price: number, from: "chaos" | "divine", to: "chaos" | "divine") => number;
   getPriceInChaos: (price: number, currency: "chaos" | "divine") => number;
+  onResetTransaction: (id: string) => void;
+  onCompleteTransaction: (transaction: Transaction, profit: number, profitPercentage: number) => void;
+  onStartSelling: (transaction: Transaction) => void;
 }
 
 const UngroupedTransactionList: React.FC<UngroupedTransactionListProps> = ({
@@ -27,6 +30,9 @@ const UngroupedTransactionList: React.FC<UngroupedTransactionListProps> = ({
   divToChaos,
   convertPrice,
   getPriceInChaos,
+  onResetTransaction,
+  onCompleteTransaction,
+  onStartSelling,
 }) => {
   if (!groupedTransactions.ungrouped || groupedTransactions.ungrouped.length === 0) return null;
   return (
@@ -53,6 +59,9 @@ const UngroupedTransactionList: React.FC<UngroupedTransactionListProps> = ({
             convertPrice={convertPrice}
             getPriceInChaos={getPriceInChaos}
             groups={groups}
+            onResetTransaction={onResetTransaction}
+            onCompleteTransaction={onCompleteTransaction}
+            onStartSelling={onStartSelling}
           />
         ))}
       </div>

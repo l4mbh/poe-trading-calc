@@ -1,6 +1,7 @@
 export const STORAGE_KEYS = {
   TRANSACTIONS: 'poe-trading-transactions',
   GROUPS: 'poe-trading-groups',
+  COMPLETED_TRANSACTIONS: 'poe-completed-transactions',
   EXCHANGE_RATE: 'poe-divine-chaos-rate',
   LAST_UPDATED: 'poe-rate-last-updated',
   SELECTED_LEAGUE: 'poe-selected-league',

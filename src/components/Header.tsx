@@ -58,6 +58,18 @@ const Header: React.FC<HeaderProps> = ({ searchTerm, onSearchChange }) => {
             >
               Cập nhật
             </NavLink>
+            <NavLink
+              to="/statistics"
+              className={({ isActive }) =>
+                `transition-colors ${
+                  isActive
+                    ? "text-yellow-400"
+                    : "text-slate-300 hover:text-yellow-400"
+                }`
+              }
+            >
+              Thống kê
+            </NavLink>
           </nav>
         </div>
         {onSearchChange && (

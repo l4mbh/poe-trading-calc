@@ -1,5 +1,5 @@
 import React from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, RotateCcw } from "lucide-react";
 import { Transaction, TransactionGroup } from "../../types";
 import ChaosOrbImg from "../../assets/images/Chaos_Orb.png";
 
@@ -12,6 +12,7 @@ interface TransactionTableViewProps {
   calculateProfit: (transaction: Transaction) => any;
   getPriceInChaos: (price: number, currency: "chaos" | "divine") => number;
   groups: TransactionGroup[];
+  onResetTransaction: (id: string) => void;
 }
 
 const TransactionTableView: React.FC<TransactionTableViewProps> = ({
@@ -23,6 +24,7 @@ const TransactionTableView: React.FC<TransactionTableViewProps> = ({
   calculateProfit,
   getPriceInChaos,
   groups,
+  onResetTransaction,
 }) => {
   return (
     <div className="w-full overflow-x-auto">
@@ -77,13 +79,22 @@ const TransactionTableView: React.FC<TransactionTableViewProps> = ({
                     <span className={`font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{profit.toFixed(2)}</span>
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <button
-                      className="p-2 rounded hover:bg-red-600/20 text-red-400 hover:text-red-300 transition-colors"
-                      onClick={e => { e.stopPropagation(); removeTransaction(transaction.id); }}
-                      title="Xóa giao dịch"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-center space-x-1">
+                      <button
+                        className="p-2 rounded hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 transition-colors"
+                        onClick={e => { e.stopPropagation(); onResetTransaction(transaction.id); }}
+                        title="Reset các trường mua vào và bán ra"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-2 rounded hover:bg-red-600/20 text-red-400 hover:text-red-300 transition-colors"
+                        onClick={e => { e.stopPropagation(); removeTransaction(transaction.id); }}
+                        title="Xóa giao dịch"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {isExpanded && (

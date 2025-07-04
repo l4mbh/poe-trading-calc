@@ -23,6 +23,9 @@ interface GroupListProps {
   divToChaos: (divAmount: number) => number;
   convertPrice: (price: number, from: "chaos" | "divine", to: "chaos" | "divine") => number;
   getPriceInChaos: (price: number, currency: "chaos" | "divine") => number;
+  onResetTransaction: (id: string) => void;
+  onCompleteTransaction: (transaction: Transaction, profit: number, profitPercentage: number) => void;
+  onStartSelling: (transaction: Transaction) => void;
 }
 
 const GroupList: React.FC<GroupListProps> = ({
@@ -45,6 +48,9 @@ const GroupList: React.FC<GroupListProps> = ({
   divToChaos,
   convertPrice,
   getPriceInChaos,
+  onResetTransaction,
+  onCompleteTransaction,
+  onStartSelling,
 }) => {
   return (
     <>
@@ -101,6 +107,9 @@ const GroupList: React.FC<GroupListProps> = ({
                     convertPrice={convertPrice}
                     getPriceInChaos={getPriceInChaos}
                     groups={groups}
+                    onResetTransaction={onResetTransaction}
+                    onCompleteTransaction={onCompleteTransaction}
+                    onStartSelling={onStartSelling}
                   />
                 ))}
               </div>

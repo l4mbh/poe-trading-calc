@@ -10,6 +10,26 @@ export interface Transaction {
   buyPriceCurrency: 'chaos' | 'divine';
   sellPriceCurrency: 'chaos' | 'divine';
   isSelected?: boolean;
+  isSelling?: boolean;
+  sellingStartedAt?: string; // ISO date string when selling started
+}
+
+export interface CompletedTransaction {
+  id: string;
+  name: string;
+  buyQuantity: number;
+  buyPrice: number;
+  sellQuantity: number;
+  sellPrice: number;
+  buyPriceCurrency: 'chaos' | 'divine';
+  sellPriceCurrency: 'chaos' | 'divine';
+  groupId: string | null;
+  profit: number;
+  profitPercentage: number;
+  completedAt: string; // ISO date string
+  completedDate: string; // YYYY-MM-DD format for grouping
+  sellingStartedAt?: string; // ISO date string when selling started
+  sellingDuration?: number; // Duration in hours
 }
 
 export interface TransactionGroup {
@@ -42,6 +62,9 @@ export interface TransactionCardProps {
   convertPrice: (price: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine') => number;
   getPriceInChaos: (price: number, currency: 'chaos' | 'divine') => number;
   groups: TransactionGroup[];
+  onResetTransaction: (id: string) => void;
+  onCompleteTransaction: (transaction: Transaction, profit: number, profitPercentage: number) => void;
+  onStartSelling: (transaction: Transaction) => void;
 }
 
 export interface LegacyTransaction {

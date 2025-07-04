@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import {
   Transaction,
   TransactionGroup,
+  CompletedTransaction,
   ExportData,
   LegacyTransaction,
 } from "../types";
@@ -48,6 +49,10 @@ export default function HomePage() {
     STORAGE_KEYS.GROUPS,
     []
   );
+  const [completedTransactions, setCompletedTransactions] = useLocalStorage<CompletedTransaction[]>(
+    STORAGE_KEYS.COMPLETED_TRANSACTIONS,
+    []
+  );
   const [showGroupForm, setShowGroupForm] = useState<boolean>(false);
   const [newGroupName, setNewGroupName] = useState<string>("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
@@ -88,8 +93,7 @@ export default function HomePage() {
   >("idle");
   const [importError, setImportError] = useState<string>("");
 
-  // Sidebar state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(true);
+
 
   // Action buttons collapsed state
   const [isActionsCollapsed, setIsActionsCollapsed] = useState<boolean>(true);
@@ -203,6 +207,71 @@ export default function HomePage() {
     }
   };
 
+  const resetTransaction = (id: string) => {
+    setTransactions(
+      transactions.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              buyQuantity: 0,
+              buyPrice: 0,
+              sellQuantity: 0,
+              sellPrice: 0,
+              buyPriceCurrency: "chaos",
+              sellPriceCurrency: "chaos",
+              isSelling: false,
+              sellingStartedAt: undefined,
+            }
+          : t
+      )
+    );
+  };
+
+  const startSelling = (transaction: Transaction) => {
+    const now = new Date();
+    setTransactions(
+      transactions.map((t) =>
+        t.id === transaction.id
+          ? {
+              ...t,
+              isSelling: true,
+              sellingStartedAt: now.toISOString(),
+            }
+          : t
+      )
+    );
+    showSuccessToast(`Đã bắt đầu treo bán "${transaction.name}"`);
+  };
+
+  const completeTransaction = (transaction: Transaction, profit: number, profitPercentage: number) => {
+    const now = new Date();
+    
+    // Calculate selling duration if transaction was selling
+    let sellingDuration: number | undefined;
+    if (transaction.sellingStartedAt) {
+      const startTime = new Date(transaction.sellingStartedAt);
+      sellingDuration = (now.getTime() - startTime.getTime()) / (1000 * 60 * 60); // Convert to hours
+    }
+
+    const completedTransaction: CompletedTransaction = {
+      ...transaction,
+      profit,
+      profitPercentage,
+      completedAt: now.toISOString(),
+      completedDate: now.toISOString().split('T')[0], // YYYY-MM-DD format
+      sellingDuration,
+    };
+
+    // Add to completed transactions
+    setCompletedTransactions([...completedTransactions, completedTransaction]);
+    
+    // Reset the original transaction
+    resetTransaction(transaction.id);
+    
+    const durationText = sellingDuration ? ` (bán trong ${sellingDuration.toFixed(1)}h)` : '';
+    showSuccessToast(`Đã lưu giao dịch "${transaction.name}" với lợi nhuận ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} chaos${durationText}`);
+  };
+
   const updateExchangeRate = async () => {
     await loadApiRate();
   };
@@ -227,9 +296,7 @@ export default function HomePage() {
     }
   };
 
-  const handleSidebarToggle = (isCollapsed: boolean) => {
-    setIsSidebarCollapsed(isCollapsed);
-  };
+
 
   const addTransaction = (groupId: string | null = null) => {
     const newTransaction: Transaction = {
@@ -630,8 +697,8 @@ export default function HomePage() {
         onToggleApiCalls={handleToggleApiCalls}
         groups={groups}
         profitFilter={profitFilter}
-        onProfitFilterChange={setProfitFilter}
-        onSidebarToggle={handleSidebarToggle}
+                onProfitFilterChange={setProfitFilter}
+        onSidebarToggle={() => {}}
       />
 
       {/* Main Content */}
@@ -708,43 +775,49 @@ export default function HomePage() {
         <div className="space-y-6">
           {transactionViewType === "card" && (
             <>
-              <GroupList
-                groups={groups}
-                groupedTransactions={getTransactionsByGroup()}
-                editingGroupId={editingGroupId}
-                editingGroupName={editingGroupName}
-                startEditingGroup={startEditingGroup}
-                saveGroupEdit={saveGroupEdit}
-                cancelGroupEdit={cancelGroupEdit}
-                setEditingGroupName={setEditingGroupName}
-                toggleGroupExpansion={toggleGroupExpansion}
-                addTransaction={addTransaction}
-                deleteGroup={deleteGroup}
-                updateTransaction={(id, field, value) =>
-                  updateTransaction(id, field as keyof Transaction, value)
-                }
-                removeTransaction={removeTransaction}
-                toggleFavorite={toggleFavorite}
-                calculateProfit={calculateProfit}
-                chaosToDiv={chaosToDivFn}
-                divToChaos={divToChaosFn}
-                convertPrice={convertPriceFn}
-                getPriceInChaos={getPriceInChaosFn}
-              />
-              <UngroupedTransactionList
-                groupedTransactions={getTransactionsByGroup()}
-                groups={groups}
-                updateTransaction={(id, field, value) =>
-                  updateTransaction(id, field as keyof Transaction, value)
-                }
-                removeTransaction={removeTransaction}
-                toggleFavorite={toggleFavorite}
-                calculateProfit={calculateProfit}
-                chaosToDiv={chaosToDivFn}
-                divToChaos={divToChaosFn}
-                convertPrice={convertPriceFn}
-                getPriceInChaos={getPriceInChaosFn}
-              />
+                              <GroupList
+                  groups={groups}
+                  groupedTransactions={getTransactionsByGroup()}
+                  editingGroupId={editingGroupId}
+                  editingGroupName={editingGroupName}
+                  startEditingGroup={startEditingGroup}
+                  saveGroupEdit={saveGroupEdit}
+                  cancelGroupEdit={cancelGroupEdit}
+                  setEditingGroupName={setEditingGroupName}
+                  toggleGroupExpansion={toggleGroupExpansion}
+                  addTransaction={addTransaction}
+                  deleteGroup={deleteGroup}
+                  updateTransaction={(id, field, value) =>
+                    updateTransaction(id, field as keyof Transaction, value)
+                  }
+                  removeTransaction={removeTransaction}
+                  toggleFavorite={toggleFavorite}
+                  calculateProfit={calculateProfit}
+                  chaosToDiv={chaosToDivFn}
+                  divToChaos={divToChaosFn}
+                  convertPrice={convertPriceFn}
+                  getPriceInChaos={getPriceInChaosFn}
+                  onResetTransaction={resetTransaction}
+                  onCompleteTransaction={completeTransaction}
+                  onStartSelling={startSelling}
+                />
+                              <UngroupedTransactionList
+                  groupedTransactions={getTransactionsByGroup()}
+                  groups={groups}
+                  updateTransaction={(id, field, value) =>
+                    updateTransaction(id, field as keyof Transaction, value)
+                  }
+                  removeTransaction={removeTransaction}
+                  toggleFavorite={toggleFavorite}
+                  calculateProfit={calculateProfit}
+                  chaosToDiv={chaosToDivFn}
+                  divToChaos={divToChaosFn}
+                  convertPrice={convertPriceFn}
+                  getPriceInChaos={getPriceInChaosFn}
+                  onResetTransaction={resetTransaction}
+                  onCompleteTransaction={completeTransaction}
+                  onStartSelling={startSelling}
+                />
             </>
           )}
           {transactionViewType === "row" && (
@@ -759,6 +832,7 @@ export default function HomePage() {
               calculateProfit={calculateProfit}
               getPriceInChaos={getPriceInChaosFn}
               groups={groups}
+              onResetTransaction={resetTransaction}
             />
           )}
         </div>
