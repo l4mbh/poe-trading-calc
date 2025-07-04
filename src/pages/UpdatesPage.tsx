@@ -3,21 +3,51 @@ import React, { useState } from "react";
 const updates = [
   {
     id: 1,
-    title: "Tách HomePage thành component riêng, refactor layout",
-    content: `- Trang chủ đã được tách thành HomePage riêng biệt\n- Header trở thành main menu\n- Layout tổng thể sử dụng MainLayout\n- Tối ưu hóa code, tách các component lớn thành file riêng`,
-    date: "2024-05-30 15:00"
+    title: "Giao diện mới hiện đại, dễ sử dụng",
+    content: `- Giao diện được làm mới, màu sắc rõ ràng, dễ nhìn hơn\n- Menu chính luôn hiển thị ở đầu trang, dễ dàng chuyển trang` ,
+    date: "2024-05-30 17:00"
   },
   {
     id: 2,
-    title: "Thêm chức năng tìm kiếm toàn cục",
-    content: `- Thanh search được đưa ra ngoài Header\n- Chỉ trang Home mới có thanh search\n- Các trang khác giữ layout gọn gàng` ,
-    date: "2024-05-30 15:30"
+    title: "Thêm thanh tìm kiếm tiện lợi",
+    content: `- Có thể tìm kiếm nhanh các giao dịch ngay trên trang chủ\n- Tìm kiếm theo tên giao dịch, thao tác mượt mà` ,
+    date: "2024-05-30 17:10"
   },
   {
     id: 3,
-    title: "Cập nhật giao diện Header và menu",
-    content: `- Thêm lại logo và brand\n- Menu điều hướng rõ ràng\n- Responsive tốt trên mọi thiết bị` ,
-    date: "2024-05-30 16:00"
+    title: "Trang Chia sẻ và Cập nhật",
+    content: `- Trang Chia sẻ: nơi bạn có thể chia sẻ hoặc tải về dữ liệu giao dịch từ cộng đồng (sắp ra mắt)\n- Trang Cập nhật: xem lại các thay đổi mới nhất của ứng dụng` ,
+    date: "2024-05-30 17:15"
+  },
+  {
+    id: 4,
+    title: "Tối ưu trải nghiệm trên điện thoại",
+    content: `- Giao diện tự động điều chỉnh phù hợp với màn hình nhỏ\n- Các nút bấm, menu dễ thao tác trên di động` ,
+    date: "2024-05-30 17:20"
+  },
+  {
+    id: 5,
+    title: "Quản lý nhóm giao dịch dễ dàng",
+    content: `- Có thể tạo nhiều nhóm để phân loại giao dịch\n- Di chuyển, chỉnh sửa, xóa nhóm nhanh chóng` ,
+    date: "2024-05-30 17:30"
+  },
+  {
+    id: 6,
+    title: "Xem giao dịch dạng bảng hoặc thẻ",
+    content: `- Tuỳ chọn xem giao dịch theo dạng bảng (table) hoặc thẻ (card)\n- Dễ dàng chuyển đổi chỉ với một nút bấm` ,
+    date: "2024-05-30 17:35"
+  },
+  {
+    id: 7,
+    title: "Xuất/Nhập dữ liệu tiện lợi",
+    content: `- Có thể xuất toàn bộ dữ liệu giao dịch ra file để lưu trữ hoặc chia sẻ\n- Nhập lại dữ liệu từ file chỉ với vài thao tác` ,
+    date: "2024-05-30 17:40"
+  },
+  {
+    id: 8,
+    title: "Thông báo tự động, thao tác nhanh",
+    content: `- Hiển thị thông báo khi thêm, xóa, chỉnh sửa giao dịch hoặc nhóm\n- Thao tác mượt mà, phản hồi tức thì` ,
+    date: "2024-05-30 17:45"
   }
 ];
 
