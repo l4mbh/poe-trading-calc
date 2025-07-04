@@ -41,27 +41,53 @@ const extractDivineRate = (data: PoeNinjaApiResponse): number => {
 };
 
 /**
- * Lấy tỷ giá Divine Orb từ POE.ninja API qua Vite proxy
+ * Phát hiện môi trường và trả về base URL phù hợp
+ */
+const getApiBaseUrl = (): string => {
+  // Check if we're in development (Vite dev server)
+  if (import.meta.env.DEV) {
+    return '/poe-ninja-api/data';
+  }
+  
+  // In production, use Vercel serverless function
+  return '/api/poe-ninja';
+};
+
+/**
+ * Lấy tỷ giá Divine Orb từ POE.ninja API
+ * - Development: Sử dụng Vite proxy
+ * - Production: Sử dụng Vercel serverless function
  */
 export const fetchDivineToChaoRate = async (league: string): Promise<number> => {
   const formattedLeague = formatLeagueName(league);
+  const apiBaseUrl = getApiBaseUrl();
   
   try {
-    // Sử dụng Vite proxy thay vì gọi trực tiếp
-    const proxyUrl = `/poe-ninja-api/data/currencyoverview?league=${encodeURIComponent(formattedLeague)}&type=Currency`;
-    console.log('Fetching via Vite proxy:', proxyUrl);
+    let apiUrl: string;
     
-    const response = await fetch(proxyUrl, {
+    if (import.meta.env.DEV) {
+      // Development: Vite proxy format
+      apiUrl = `${apiBaseUrl}/currencyoverview?league=${encodeURIComponent(formattedLeague)}&type=Currency`;
+    } else {
+      // Production: Vercel serverless function format
+      apiUrl = `${apiBaseUrl}?league=${encodeURIComponent(formattedLeague)}&type=Currency`;
+    }
+    
+    console.log(`Fetching via ${import.meta.env.DEV ? 'Vite proxy' : 'Vercel function'}:`, apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      signal: AbortSignal.timeout(15000) // 15 second timeout for production
     });
     
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || `${response.status} ${response.statusText}`;
+      throw new Error(`API request failed: ${errorMessage}`);
     }
     
     const data = await response.json();
@@ -75,7 +101,7 @@ export const fetchDivineToChaoRate = async (league: string): Promise<number> => 
     
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
-    console.error('Vite proxy API call failed:', error);
+    console.error('API call failed:', error);
     
     // Kiểm tra các loại lỗi phổ biến
     if (errorMsg.includes('timeout') || errorMsg.includes('AbortError')) {
@@ -83,10 +109,13 @@ export const fetchDivineToChaoRate = async (league: string): Promise<number> => 
     }
     
     if (errorMsg.includes('fetch') || errorMsg.includes('NetworkError') || errorMsg.includes('Failed to fetch')) {
-      throw new Error(`Không thể kết nối đến POE.ninja API. Kiểm tra kết nối mạng hoặc dev server có đang chạy.`);
+      const envHint = import.meta.env.DEV 
+        ? 'Kiểm tra dev server có đang chạy không.' 
+        : 'Kiểm tra kết nối mạng.';
+      throw new Error(`Không thể kết nối đến API. ${envHint}`);
     }
     
-    if (errorMsg.includes('404')) {
+    if (errorMsg.includes('404') || errorMsg.includes('League parameter is required')) {
       throw new Error(`League "${formattedLeague}" không tồn tại trên POE.ninja.`);
     }
     
