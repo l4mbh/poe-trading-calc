@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, TrendingUp, TrendingDown, Star, ArrowUpDown } from 'lucide-react';
+import { Trash2, TrendingUp, TrendingDown, Star, ArrowUpDown, RotateCcw } from 'lucide-react';
 import { TransactionCardProps } from '../types';
 import { CURRENCY_IMAGES, STORAGE_KEYS } from '../utils/constants';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -163,6 +163,15 @@ export function TransactionCard({
     showSuccessToast(`Đã chuyển sang chế độ nhập ${sellPriceMode === 'unit' ? 'tổng giá' : 'giá đơn vị'}`);
   };
 
+  // Reset các trường mua vào và bán ra, giữ nguyên tên giao dịch
+  const handleResetTransaction = () => {
+    onUpdate(transaction.id, 'buyQuantity', 0);
+    onUpdate(transaction.id, 'buyPrice', 0);
+    onUpdate(transaction.id, 'sellQuantity', 0);
+    onUpdate(transaction.id, 'sellPrice', 0);
+    showSuccessToast('Đã reset các trường mua vào và bán ra');
+  };
+
   // Xử lý khi thay đổi giá mua - hỗ trợ cả số và expression
   const handleBuyPriceChange = (inputValue: string) => {
     // Nếu input rỗng, set về 0
@@ -213,6 +222,13 @@ export function TransactionCard({
           />
         </div>
         <div className="flex items-center space-x-1">
+          <button
+            onClick={handleResetTransaction}
+            className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-2 rounded-lg transition-colors"
+            title="Reset các trường mua vào và bán ra"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
           <button
             onClick={() => onToggleFavorite(transaction.id)}
             className={`p-2 rounded-lg transition-colors ${
