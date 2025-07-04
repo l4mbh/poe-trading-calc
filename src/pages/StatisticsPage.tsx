@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { CompletedTransaction } from '../types';
 import { CURRENCY_IMAGES } from '../utils/constants';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, TimerIcon } from 'lucide-react';
 
 export default function StatisticsPage() {
   const [completedTransactions] = useLocalStorage<CompletedTransaction[]>(
@@ -95,10 +95,9 @@ export default function StatisticsPage() {
 
   const formatProfit = (profit: number, isDivine: boolean = false) => {
     const isPositive = profit >= 0;
-    const currency = isDivine ? 'divine' : 'chaos';
     return (
       <span className={`font-medium ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-        {isPositive ? '+' : ''}{profit.toFixed(isDivine ? 3 : 2)} {currency}
+        {isPositive ? '+' : ''}{profit.toFixed(isDivine ? 3 : 2)}
       </span>
     );
   };
@@ -136,11 +135,13 @@ export default function StatisticsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Tổng lợi nhuận</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-white flex items-center space-x-2">
                   {formatProfit(stats.totalProfitDivine, true)}
+                  <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-6 h-6" />
                 </p>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-400 flex items-center space-x-1">
                   ({formatProfit(stats.totalProfit)})
+                  <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
                 </p>
               </div>
               <DollarSign className="w-8 h-8 text-yellow-400" />
@@ -154,11 +155,13 @@ export default function StatisticsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Lợi nhuận trung bình</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold text-white flex items-center space-x-2">
                   {formatProfit(stats.averageProfitDivine, true)}
+                  <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-6 h-6" />
                 </p>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-400 flex items-center space-x-1">
                   ({formatProfit(stats.averageProfit)})
+                  <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
                 </p>
               </div>
               <BarChart3 className="w-8 h-8 text-blue-400" />
@@ -206,7 +209,7 @@ export default function StatisticsPage() {
                   {stats.averageSellingDuration.toFixed(1)}h
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-blue-400" />
+              <TimerIcon className="w-8 h-8 text-blue-400" />
             </div>
             <div className="mt-2 text-sm text-slate-400">
               {stats.transactionsWithDuration} giao dịch có thời gian
@@ -225,11 +228,14 @@ export default function StatisticsPage() {
                 </h3>
                                  <div className="space-y-2">
                    <p className="text-white font-medium">{stats.bestTransaction.name}</p>
-                   <p className="text-green-400 font-bold text-xl">
-                     +{(stats.bestTransaction.profit / 200).toFixed(3)} divine
+                   <p className="text-green-400 font-bold text-xl flex items-center space-x-2">
+                     +{(stats.bestTransaction.profit / 200).toFixed(3)}
+                     <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-5 h-5" />
                    </p>
-                   <p className="text-slate-400 text-sm">
-                     +{stats.bestTransaction.profit.toFixed(2)} chaos ({stats.bestTransaction.profitPercentage.toFixed(2)}%)
+                   <p className="text-slate-400 text-sm flex items-center space-x-1">
+                     +{stats.bestTransaction.profit.toFixed(2)}
+                     <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
+                     ({stats.bestTransaction.profitPercentage.toFixed(2)}%)
                    </p>
                    <p className="text-slate-400 text-sm">
                      {formatDate(stats.bestTransaction.completedDate)}
@@ -251,11 +257,14 @@ export default function StatisticsPage() {
                 </h3>
                                  <div className="space-y-2">
                    <p className="text-white font-medium">{stats.worstTransaction.name}</p>
-                   <p className="text-red-400 font-bold text-xl">
-                     {(stats.worstTransaction.profit / 200).toFixed(3)} divine
+                   <p className="text-red-400 font-bold text-xl flex items-center space-x-2">
+                     {(stats.worstTransaction.profit / 200).toFixed(3)}
+                     <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-5 h-5" />
                    </p>
-                   <p className="text-slate-400 text-sm">
-                     {stats.worstTransaction.profit.toFixed(2)} chaos ({stats.worstTransaction.profitPercentage.toFixed(2)}%)
+                   <p className="text-slate-400 text-sm flex items-center space-x-1">
+                     {stats.worstTransaction.profit.toFixed(2)}
+                     <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
+                     ({stats.worstTransaction.profitPercentage.toFixed(2)}%)
                    </p>
                    <p className="text-slate-400 text-sm">
                      {formatDate(stats.worstTransaction.completedDate)}
@@ -312,11 +321,14 @@ export default function StatisticsPage() {
                                              <td className="p-4">
                          <div className="flex items-center space-x-2">
                            <span className="font-medium text-yellow-400">
-                             {(transaction.profit / 200).toFixed(3)} divine
+                             {(transaction.profit / 200).toFixed(3)}
                            </span>
+                           <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-4 h-4" />
                          </div>
-                         <div className="text-sm text-slate-400">
-                           {formatProfit(transaction.profit)} ({transaction.profitPercentage.toFixed(2)}%)
+                         <div className="text-sm text-slate-400 flex items-center space-x-1">
+                           {formatProfit(transaction.profit)}
+                           <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-3 h-3" />
+                           ({transaction.profitPercentage.toFixed(2)}%)
                          </div>
                        </td>
                        <td className="p-4 text-slate-400 text-sm">
