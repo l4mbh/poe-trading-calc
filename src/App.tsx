@@ -1,68 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, TrendingUp, TrendingDown, Coins, RefreshCw, Search, Star, Folder, FolderOpen, Edit3, Check, X, ArrowUpDown, Download, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Coins, Search, Folder, FolderOpen, Edit3, Check, X, Download, Upload } from 'lucide-react';
 
-interface Transaction {
-  id: string;
-  name: string;
-  buyQuantity: number;
-  buyPrice: number;
-  sellQuantity: number;
-  sellPrice: number;
-  isFavorite: boolean;
-  groupId: string | null;
-  buyPriceCurrency: 'chaos' | 'divine';
-  sellPriceCurrency: 'chaos' | 'divine';
-}
+import { Transaction, TransactionGroup, ExportData, LegacyTransaction } from './types';
+import { STORAGE_KEYS, GROUP_COLORS, POE_LEAGUES } from './utils/constants';
+import { chaosToDiv, divToChaos, convertPrice, getPriceInChaos } from './utils/currencyUtils';
+import { fetchDivineToChaoRate, formatLeagueName } from './utils/apiService';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, TOAST_MESSAGES } from './utils/toastUtils';
+import { Header } from './components/Header';
+import { TransactionCard } from './components/TransactionCard';
+import { DataModal } from './components/DataModal';
+import { ToastProvider } from './components/ToastProvider';
 
-interface TransactionGroup {
-  id: string;
-  name: string;
-  color: string;
-  isExpanded: boolean;
-}
 
-interface ExportData {
-  transactions: Transaction[];
-  groups: TransactionGroup[];
-  divineToChaoRate: number;
-  exportDate: string;
-  version: string;
-}
-
-const STORAGE_KEYS = {
-  TRANSACTIONS: 'poe-trading-transactions',
-  GROUPS: 'poe-trading-groups',
-  EXCHANGE_RATE: 'poe-divine-chaos-rate',
-  LAST_UPDATED: 'poe-rate-last-updated'
-};
-
-const GROUP_COLORS = [
-  'bg-blue-500/20 border-blue-500/30 text-blue-400',
-  'bg-green-500/20 border-green-500/30 text-green-400',
-  'bg-purple-500/20 border-purple-500/30 text-purple-400',
-  'bg-pink-500/20 border-pink-500/30 text-pink-400',
-  'bg-orange-500/20 border-orange-500/30 text-orange-400',
-  'bg-cyan-500/20 border-cyan-500/30 text-cyan-400',
-];
-
-// Currency images from POE Wiki
-const CURRENCY_IMAGES = {
-  chaos: 'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lSZXJvbGxSYXJlIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/d119a0d734/CurrencyRerollRare.png',
-  divine: 'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lNb2RWYWx1ZXMiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/e1a54ff97d/CurrencyModValues.png'
-};
 
 function App() {
-  const [divineToChaoRate, setDivineToChaoRate] = useState<number>(180);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [groups, setGroups] = useState<TransactionGroup[]>([]);
+  const [divineToChaoRate, setDivineToChaoRate] = useLocalStorage<number>(STORAGE_KEYS.EXCHANGE_RATE, 180);
+  const [transactions, setTransactions] = useLocalStorage<Transaction[]>(STORAGE_KEYS.TRANSACTIONS, []);
+  const [groups, setGroups] = useLocalStorage<TransactionGroup[]>(STORAGE_KEYS.GROUPS, []);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showGroupForm, setShowGroupForm] = useState<boolean>(false);
   const [newGroupName, setNewGroupName] = useState<string>('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string>('');
   const [totalProfitCurrency, setTotalProfitCurrency] = useState<'chaos' | 'divine'>('chaos');
+  
+  // New states for API integration
+  const [selectedLeague, setSelectedLeague] = useLocalStorage<string>(STORAGE_KEYS.SELECTED_LEAGUE, POE_LEAGUES[0]);
+  const [apiRate, setApiRate] = useLocalStorage<number | null>(STORAGE_KEYS.API_RATE, null);
+  const [apiLastUpdated, setApiLastUpdated] = useLocalStorage<Date | null>(STORAGE_KEYS.API_LAST_UPDATED, null);
+  const [isLoadingApiRate, setIsLoadingApiRate] = useState<boolean>(false);
+  const [enableApiCalls, setEnableApiCalls] = useLocalStorage<boolean>('poe-enable-api-calls', true);
   
   // Export/Import modal states
   const [showDataModal, setShowDataModal] = useState<boolean>(false);
@@ -72,96 +40,111 @@ function App() {
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importError, setImportError] = useState<string>('');
 
-  // Load data from localStorage on component mount
+  // Migrate old data on component mount
   useEffect(() => {
     try {
-      // Load transactions
-      const savedTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-      if (savedTransactions) {
-        const parsedTransactions = JSON.parse(savedTransactions);
-        // Migrate old transactions to include currency fields
-        const migratedTransactions = parsedTransactions.map((t: any) => ({
-          ...t,
-          buyPriceCurrency: t.buyPriceCurrency || 'chaos',
-          sellPriceCurrency: t.sellPriceCurrency || 'chaos'
-        }));
+      // Migrate old transactions to include currency fields
+      const migratedTransactions = transactions.map((t: LegacyTransaction) => ({
+        ...t,
+        buyPriceCurrency: t.buyPriceCurrency || 'chaos',
+        sellPriceCurrency: t.sellPriceCurrency || 'chaos'
+      }));
+      
+      if (JSON.stringify(migratedTransactions) !== JSON.stringify(transactions)) {
         setTransactions(migratedTransactions);
       }
-
-      // Load groups
-      const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
-      if (savedGroups) {
-        const parsedGroups = JSON.parse(savedGroups);
-        setGroups(parsedGroups);
-      }
-
-      // Load exchange rate
-      const savedRate = localStorage.getItem(STORAGE_KEYS.EXCHANGE_RATE);
-      if (savedRate) {
-        setDivineToChaoRate(Number(savedRate));
-      }
-
-      // Load last updated timestamp
-      const savedLastUpdated = localStorage.getItem(STORAGE_KEYS.LAST_UPDATED);
-      if (savedLastUpdated) {
-        setLastUpdated(new Date(savedLastUpdated));
-      }
     } catch (error) {
-      console.error('Error loading data from localStorage:', error);
+      console.error('Error migrating data:', error);
     }
   }, []);
 
-  // Save transactions to localStorage whenever transactions change
+  // Load API rate on component mount and when league changes
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-    } catch (error) {
-      console.error('Error saving transactions to localStorage:', error);
+    if (enableApiCalls) {
+      loadApiRate();
     }
-  }, [transactions]);
+  }, [selectedLeague, enableApiCalls]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Save groups to localStorage whenever groups change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(groups));
-    } catch (error) {
-      console.error('Error saving groups to localStorage:', error);
+  const loadApiRate = async () => {
+    if (!enableApiCalls) {
+      showInfoToast('API calls đã bị tắt. Sử dụng tỷ giá thủ công.');
+      return;
     }
-  }, [groups]);
-
-  // Save exchange rate to localStorage whenever it changes
-  useEffect(() => {
+    
+    setIsLoadingApiRate(true);
     try {
-      localStorage.setItem(STORAGE_KEYS.EXCHANGE_RATE, divineToChaoRate.toString());
+      const formattedLeague = formatLeagueName(selectedLeague);
+      const rate = await fetchDivineToChaoRate(formattedLeague);
+      setApiRate(rate);
+      setApiLastUpdated(new Date());
+      
+      // If user doesn't have a manual rate set or it's default value, use API rate
+      if (!divineToChaoRate || divineToChaoRate === 180) {
+        setDivineToChaoRate(rate);
+        showSuccessToast(`Đã cập nhật tỷ giá từ ${formattedLeague}: ${rate.toFixed(2)} Chaos`);
+      } else {
+        showInfoToast(`Tỷ giá API ${formattedLeague}: ${rate.toFixed(2)} Chaos (Giữ nguyên tỷ giá thủ công)`);
+      }
     } catch (error) {
-      console.error('Error saving exchange rate to localStorage:', error);
+      console.error('Failed to load API rate:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+      
+      // Set fallback rates based on league
+      const getFallbackRate = (league: string): number => {
+        const lowerLeague = league.toLowerCase();
+        
+        // Known approximate rates for popular leagues
+        if (lowerLeague.includes('standard')) return 200;
+        if (lowerLeague.includes('hardcore')) return 185;
+        if (lowerLeague.includes('mercenaries')) return 210;
+        if (lowerLeague.includes('settlers')) return 195;
+        if (lowerLeague.includes('crucible')) return 180;
+        if (lowerLeague.includes('sanctum')) return 175;
+        if (lowerLeague.includes('kalandra')) return 190;
+        
+        // Default for unknown leagues
+        return 180;
+      };
+      
+      // Only show detailed error if this is not a network/CORS issue
+      if (errorMessage.includes('CORS') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        showWarningToast(`POE.ninja API hiện không khả dụng (CORS). Sử dụng tỷ giá dự phòng.`);
+      } else {
+        showWarningToast(errorMessage);
+      }
+      
+      // Fallback: nếu chưa có tỷ giá nào, dùng giá trị mặc định hợp lý dựa trên league
+      if (!divineToChaoRate || divineToChaoRate === 180) {
+        const fallbackRate = getFallbackRate(selectedLeague);
+        setDivineToChaoRate(fallbackRate);
+        showInfoToast(`Sử dụng tỷ giá dự phòng cho ${selectedLeague}: ${fallbackRate} Chaos`);
+      }
+    } finally {
+      setIsLoadingApiRate(false);
     }
-  }, [divineToChaoRate]);
-
-  // Save last updated timestamp to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, lastUpdated.toISOString());
-    } catch (error) {
-      console.error('Error saving last updated timestamp to localStorage:', error);
-    }
-  }, [lastUpdated]);
+  };
 
   const updateExchangeRate = async () => {
-    setIsUpdating(true);
-    try {
-      // Simulate API call - replace with your actual API endpoint
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // const response = await fetch('your-api-endpoint');
-      // const data = await response.json();
-      // setDivineToChaoRate(data.rate);
-      
-      // For demo purposes, we'll just update the timestamp
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to update exchange rate:', error);
-    } finally {
-      setIsUpdating(false);
+    await loadApiRate();
+  };
+
+  const handleLeagueChange = (league: string) => {
+    setSelectedLeague(league);
+    showInfoToast(`Đã chuyển sang league: ${league}`);
+  };
+
+  const handleManualRateChange = (rate: number) => {
+    setDivineToChaoRate(rate);
+  };
+
+  const handleToggleApiCalls = () => {
+    setEnableApiCalls(!enableApiCalls);
+    if (!enableApiCalls) {
+      showInfoToast('Đã bật API calls. Sẽ tự động tải tỷ giá từ POE.ninja.');
+      // Load API rate immediately when enabled
+      setTimeout(() => loadApiRate(), 100);
+    } else {
+      showInfoToast('Đã tắt API calls. Chỉ sử dụng tỷ giá thủ công.');
     }
   };
 
@@ -179,13 +162,15 @@ function App() {
       sellPriceCurrency: 'chaos',
     };
     setTransactions([...transactions, newTransaction]);
+    showSuccessToast(TOAST_MESSAGES.TRANSACTION_ADDED);
   };
 
   const removeTransaction = (id: string) => {
     setTransactions(transactions.filter(t => t.id !== id));
+    showSuccessToast(TOAST_MESSAGES.TRANSACTION_DELETED);
   };
 
-  const updateTransaction = (id: string, field: keyof Transaction, value: string | number | boolean) => {
+  const updateTransaction = (id: string, field: keyof Transaction, value: string | number | boolean | null) => {
     setTransactions(transactions.map(t => 
       t.id === id ? { ...t, [field]: value } : t
     ));
@@ -208,6 +193,7 @@ function App() {
       setGroups([...groups, newGroup]);
       setNewGroupName('');
       setShowGroupForm(false);
+      showSuccessToast(TOAST_MESSAGES.GROUP_CREATED);
     }
   };
 
@@ -219,6 +205,7 @@ function App() {
       ));
       // Remove the group
       setGroups(groups.filter(g => g.id !== groupId));
+      showSuccessToast(TOAST_MESSAGES.GROUP_DELETED);
     }
   };
 
@@ -238,6 +225,7 @@ function App() {
       setGroups(groups.map(g => 
         g.id === editingGroupId ? { ...g, name: editingGroupName.trim() } : g
       ));
+      showSuccessToast(TOAST_MESSAGES.GROUP_UPDATED);
     }
     setEditingGroupId(null);
     setEditingGroupName('');
@@ -248,29 +236,26 @@ function App() {
     setEditingGroupName('');
   };
 
-  // Currency conversion functions
-  const chaosToDiv = (chaosAmount: number) => {
-    return chaosAmount / divineToChaoRate;
+  // Currency conversion functions with divineToChaoRate parameter
+  const chaosToDivFn = (chaosAmount: number) => {
+    return chaosToDiv(chaosAmount, divineToChaoRate);
   };
 
-  const divToChaos = (divAmount: number) => {
-    return divAmount * divineToChaoRate;
+  const divToChaosFn = (divAmount: number) => {
+    return divToChaos(divAmount, divineToChaoRate);
   };
 
-  const convertPrice = (price: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine') => {
-    if (fromCurrency === toCurrency) return price;
-    if (fromCurrency === 'chaos' && toCurrency === 'divine') return chaosToDiv(price);
-    if (fromCurrency === 'divine' && toCurrency === 'chaos') return divToChaos(price);
-    return price;
+  const convertPriceFn = (price: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine') => {
+    return convertPrice(price, fromCurrency, toCurrency, divineToChaoRate);
   };
 
-  const getPriceInChaos = (price: number, currency: 'chaos' | 'divine') => {
-    return currency === 'chaos' ? price : divToChaos(price);
+  const getPriceInChaosFn = (price: number, currency: 'chaos' | 'divine') => {
+    return getPriceInChaos(price, currency, divineToChaoRate);
   };
 
   const calculateProfit = (transaction: Transaction) => {
-    const buyPriceInChaos = getPriceInChaos(transaction.buyPrice, transaction.buyPriceCurrency);
-    const sellPriceInChaos = getPriceInChaos(transaction.sellPrice, transaction.sellPriceCurrency);
+    const buyPriceInChaos = getPriceInChaosFn(transaction.buyPrice, transaction.buyPriceCurrency);
+    const sellPriceInChaos = getPriceInChaosFn(transaction.sellPrice, transaction.sellPriceCurrency);
     
     const totalBuyValue = transaction.buyQuantity * buyPriceInChaos;
     const totalSellValue = transaction.sellQuantity * sellPriceInChaos;
@@ -286,7 +271,7 @@ function App() {
       return total + profit;
     }, 0);
     
-    return totalProfitCurrency === 'chaos' ? totalProfitInChaos : chaosToDiv(totalProfitInChaos);
+    return totalProfitCurrency === 'chaos' ? totalProfitInChaos : chaosToDivFn(totalProfitInChaos);
   };
 
   const getFilteredTransactions = () => {
@@ -334,6 +319,7 @@ function App() {
       // Clear localStorage
       localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
       localStorage.removeItem(STORAGE_KEYS.GROUPS);
+      showSuccessToast(TOAST_MESSAGES.DATA_CLEARED);
     }
   };
 
@@ -363,8 +349,11 @@ function App() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      
+      showSuccessToast(TOAST_MESSAGES.DATA_EXPORTED);
     } catch (error) {
       console.error('Export failed:', error);
+      showErrorToast('Không thể xuất dữ liệu. Vui lòng thử lại!');
     } finally {
       setIsExporting(false);
     }
@@ -392,7 +381,7 @@ function App() {
       }
 
       // Migrate imported transactions to ensure they have all required fields
-      const migratedTransactions = importedData.transactions.map((t: any) => ({
+      const migratedTransactions = importedData.transactions.map((t: LegacyTransaction) => ({
         ...t,
         buyPriceCurrency: t.buyPriceCurrency || 'chaos',
         sellPriceCurrency: t.sellPriceCurrency || 'chaos'
@@ -407,6 +396,7 @@ function App() {
       }
 
       setImportStatus('success');
+      showSuccessToast(TOAST_MESSAGES.DATA_IMPORTED);
       
       // Auto close modal after success
       setTimeout(() => {
@@ -417,7 +407,9 @@ function App() {
     } catch (error) {
       console.error('Import failed:', error);
       setImportStatus('error');
-      setImportError(error instanceof Error ? error.message : 'Lỗi không xác định khi import dữ liệu');
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định khi import dữ liệu';
+      setImportError(errorMessage);
+      showErrorToast(errorMessage);
     } finally {
       setIsImporting(false);
     }
@@ -435,86 +427,28 @@ function App() {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
   const groupedTransactions = getTransactionsByGroup();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center">
-                <Coins className="w-6 h-6 text-slate-900" />
-              </div>
-              <h1 className="text-2xl font-bold text-white">POE Trading Calculator</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4 flex-wrap gap-4">
-              {/* Exchange Rate Section */}
-              <div className="bg-slate-700/50 rounded-lg px-4 py-3 border border-slate-600">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-slate-300 flex items-center space-x-2">
-                    <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-4 h-4" />
-                    <span>Divine → Chaos</span>
-                    <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
-                  </label>
-                  <button
-                    onClick={updateExchangeRate}
-                    disabled={isUpdating}
-                    className="text-slate-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
-                    title="Cập nhật tỷ giá"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                <div className="flex items-center space-x-2 mb-1">
-                  <input
-                    type="number"
-                    value={divineToChaoRate}
-                    onChange={(e) => setDivineToChaoRate(Number(e.target.value))}
-                    className="w-20 bg-slate-800 text-white rounded px-2 py-1 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-                  />
-                  <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400">
-                  Cập nhật: {formatTime(lastUpdated)}
-                </div>
-              </div>
-
-              {/* Total Profit */}
-              <div className="bg-slate-700/50 rounded-lg px-4 py-3 border border-slate-600">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm font-medium text-slate-300">Tổng lợi nhuận</div>
-                  <button
-                    onClick={() => setTotalProfitCurrency(totalProfitCurrency === 'chaos' ? 'divine' : 'chaos')}
-                    className="text-slate-400 hover:text-yellow-400 transition-colors"
-                    title="Chuyển đổi đơn vị"
-                  >
-                    <ArrowUpDown className="w-3 h-3" />
-                  </button>
-                </div>
-                <div className={`text-lg font-bold flex items-center space-x-1 ${getTotalProfit() >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  <span>{getTotalProfit().toFixed(totalProfitCurrency === 'chaos' ? 2 : 3)}</span>
-                  <img src={CURRENCY_IMAGES[totalProfitCurrency]} alt={`${totalProfitCurrency} Orb`} className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400 flex items-center space-x-1">
-                  <span>≈ {totalProfitCurrency === 'chaos' ? chaosToDiv(getTotalProfit()).toFixed(3) : divToChaos(getTotalProfit()).toFixed(2)}</span>
-                  <img src={CURRENCY_IMAGES[totalProfitCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${totalProfitCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Header
+        divineToChaoRate={divineToChaoRate}
+        totalProfitCurrency={totalProfitCurrency}
+        getTotalProfit={getTotalProfit}
+        chaosToDiv={chaosToDivFn}
+        divToChaos={divToChaosFn}
+        onUpdateExchangeRate={updateExchangeRate}
+        onToggleTotalProfitCurrency={() => setTotalProfitCurrency(totalProfitCurrency === 'chaos' ? 'divine' : 'chaos')}
+        selectedLeague={selectedLeague}
+        apiRate={apiRate}
+        apiLastUpdated={apiLastUpdated}
+        isLoadingApiRate={isLoadingApiRate}
+        enableApiCalls={enableApiCalls}
+        onLeagueChange={handleLeagueChange}
+        onManualRateChange={handleManualRateChange}
+        onToggleApiCalls={handleToggleApiCalls}
+      />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -725,12 +659,11 @@ function App() {
                         onRemove={removeTransaction}
                         onToggleFavorite={toggleFavorite}
                         calculateProfit={calculateProfit}
-                        chaosToDiv={chaosToDiv}
-                        divToChaos={divToChaos}
-                        convertPrice={convertPrice}
-                        getPriceInChaos={getPriceInChaos}
+                        chaosToDiv={chaosToDivFn}
+                        divToChaos={divToChaosFn}
+                        convertPrice={convertPriceFn}
+                        getPriceInChaos={getPriceInChaosFn}
                         groups={groups}
-                        divineToChaoRate={divineToChaoRate}
                       />
                     ))}
                   </div>
@@ -758,12 +691,11 @@ function App() {
                     onRemove={removeTransaction}
                     onToggleFavorite={toggleFavorite}
                     calculateProfit={calculateProfit}
-                    chaosToDiv={chaosToDiv}
-                    divToChaos={divToChaos}
-                    convertPrice={convertPrice}
-                    getPriceInChaos={getPriceInChaos}
+                    chaosToDiv={chaosToDivFn}
+                    divToChaos={divToChaosFn}
+                    convertPrice={convertPriceFn}
+                    getPriceInChaos={getPriceInChaosFn}
                     groups={groups}
-                    divineToChaoRate={divineToChaoRate}
                   />
                 ))}
               </div>
@@ -798,7 +730,10 @@ function App() {
             <h3 className="text-lg font-medium text-slate-300 mb-2">Không tìm thấy giao dịch</h3>
             <p className="text-slate-400 mb-4">Thử tìm kiếm với từ khóa khác</p>
             <button
-              onClick={() => setSearchTerm('')}
+              onClick={() => {
+                setSearchTerm('');
+                showInfoToast(TOAST_MESSAGES.SEARCH_CLEARED);
+              }}
               className="text-yellow-400 hover:text-yellow-300 font-medium"
             >
               Xóa bộ lọc
@@ -808,432 +743,34 @@ function App() {
       </div>
 
       {/* Export/Import Modal */}
-      {showDataModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-700">
-              <h2 className="text-xl font-semibold text-white">Quản lý dữ liệu</h2>
-              <button
-                onClick={() => {
-                  setShowDataModal(false);
-                  setImportStatus('idle');
-                  setImportError('');
-                }}
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <DataModal
+        showDataModal={showDataModal}
+        modalTab={modalTab}
+        isExporting={isExporting}
+        isImporting={isImporting}
+        importStatus={importStatus}
+        importError={importError}
+        transactions={transactions}
+        groups={groups}
+        divineToChaoRate={divineToChaoRate}
+        onClose={() => {
+          setShowDataModal(false);
+          setImportStatus('idle');
+          setImportError('');
+        }}
+        onTabChange={(tab) => {
+          setModalTab(tab);
+          if (tab === 'import') {
+            setImportStatus('idle');
+            setImportError('');
+          }
+        }}
+        onExport={exportData}
+        onFileUpload={handleFileUpload}
+      />
 
-            {/* Modal Tabs */}
-            <div className="flex border-b border-slate-700">
-              <button
-                onClick={() => setModalTab('export')}
-                className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  modalTab === 'export'
-                    ? 'text-green-400 border-b-2 border-green-400 bg-green-400/5'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Download className="w-4 h-4" />
-                  <span>Xuất dữ liệu</span>
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setModalTab('import');
-                  setImportStatus('idle');
-                  setImportError('');
-                }}
-                className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  modalTab === 'import'
-                    ? 'text-purple-400 border-b-2 border-purple-400 bg-purple-400/5'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Upload className="w-4 h-4" />
-                  <span>Nhập dữ liệu</span>
-                </div>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {modalTab === 'export' ? (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <FileText className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-white mb-2">Xuất dữ liệu</h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                      Tải xuống tất cả giao dịch và nhóm của bạn dưới dạng file JSON
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-700/30 rounded-lg p-4 text-sm text-slate-300">
-                    <div className="flex justify-between mb-2">
-                      <span>Số giao dịch:</span>
-                      <span className="font-medium">{transactions.length}</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                      <span>Số nhóm:</span>
-                      <span className="font-medium">{groups.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tỷ giá hiện tại:</span>
-                      <span className="font-medium">{divineToChaoRate} Chaos/Divine</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={exportData}
-                    disabled={isExporting}
-                    className="w-full bg-green-600 hover:bg-green-500 disabled:bg-green-600/50 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-                  >
-                    {isExporting ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Đang xuất...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>Tải xuống</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <Upload className="w-12 h-12 text-purple-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-white mb-2">Nhập dữ liệu</h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                      Chọn file JSON đã xuất trước đó để khôi phục dữ liệu
-                    </p>
-                  </div>
-
-                  {/* Import Status */}
-                  {importStatus === 'success' && (
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center space-x-3">
-                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      <div className="text-green-400 text-sm">
-                        Dữ liệu đã được nhập thành công!
-                      </div>
-                    </div>
-                  )}
-
-                  {importStatus === 'error' && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start space-x-3">
-                      <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                      <div className="text-red-400 text-sm">
-                        <div className="font-medium mb-1">Lỗi nhập dữ liệu</div>
-                        <div>{importError}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* File Upload */}
-                  <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-purple-400/50 transition-colors">
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleFileUpload}
-                      disabled={isImporting}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className={`cursor-pointer ${isImporting ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                      <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                      <div className="text-slate-300 font-medium mb-1">
-                        {isImporting ? 'Đang xử lý...' : 'Chọn file JSON'}
-                      </div>
-                      <div className="text-slate-400 text-sm">
-                        Kéo thả hoặc click để chọn file
-                      </div>
-                    </label>
-                  </div>
-
-                  {isImporting && (
-                    <div className="flex items-center justify-center space-x-2 text-purple-400">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Đang nhập dữ liệu...</span>
-                    </div>
-                  )}
-
-                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 text-yellow-400 text-sm">
-                    <div className="font-medium mb-1">⚠️ Lưu ý quan trọng</div>
-                    <div>Việc nhập dữ liệu sẽ thay thế hoàn toàn dữ liệu hiện tại. Hãy xuất dữ liệu hiện tại trước khi nhập.</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Transaction Card Component
-interface TransactionCardProps {
-  transaction: Transaction;
-  onUpdate: (id: string, field: keyof Transaction, value: string | number | boolean) => void;
-  onRemove: (id: string) => void;
-  onToggleFavorite: (id: string) => void;
-  calculateProfit: (transaction: Transaction) => { profit: number; profitPercentage: number };
-  chaosToDiv: (chaosAmount: number) => number;
-  divToChaos: (divAmount: number) => number;
-  convertPrice: (price: number, fromCurrency: 'chaos' | 'divine', toCurrency: 'chaos' | 'divine') => number;
-  getPriceInChaos: (price: number, currency: 'chaos' | 'divine') => number;
-  groups: TransactionGroup[];
-  divineToChaoRate: number;
-}
-
-function TransactionCard({ 
-  transaction, 
-  onUpdate, 
-  onRemove, 
-  onToggleFavorite, 
-  calculateProfit, 
-  chaosToDiv,
-  divToChaos,
-  convertPrice,
-  getPriceInChaos,
-  groups,
-  divineToChaoRate
-}: TransactionCardProps) {
-  const { profit, profitPercentage } = calculateProfit(transaction);
-  const isProfit = profit >= 0;
-  const [profitDisplayCurrency, setProfitDisplayCurrency] = useState<'chaos' | 'divine'>('chaos');
-
-  const toggleBuyPriceCurrency = () => {
-    const newCurrency = transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos';
-    const convertedPrice = convertPrice(transaction.buyPrice, transaction.buyPriceCurrency, newCurrency);
-    onUpdate(transaction.id, 'buyPrice', convertedPrice);
-    onUpdate(transaction.id, 'buyPriceCurrency', newCurrency);
-  };
-
-  const toggleSellPriceCurrency = () => {
-    const newCurrency = transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos';
-    const convertedPrice = convertPrice(transaction.sellPrice, transaction.sellPriceCurrency, newCurrency);
-    onUpdate(transaction.id, 'sellPrice', convertedPrice);
-    onUpdate(transaction.id, 'sellPriceCurrency', newCurrency);
-  };
-
-  const getBuyTotalInChaos = () => {
-    return transaction.buyQuantity * getPriceInChaos(transaction.buyPrice, transaction.buyPriceCurrency);
-  };
-
-  const getSellTotalInChaos = () => {
-    return transaction.sellQuantity * getPriceInChaos(transaction.sellPrice, transaction.sellPriceCurrency);
-  };
-
-  const getProfitInDisplayCurrency = () => {
-    return profitDisplayCurrency === 'chaos' ? profit : chaosToDiv(profit);
-  };
-
-  return (
-    <div className={`bg-slate-800/50 backdrop-blur-sm rounded-xl border p-6 hover:border-slate-600/50 transition-all duration-200 hover:shadow-lg ${
-      transaction.isFavorite ? 'border-yellow-400/50 ring-1 ring-yellow-400/20' : 'border-slate-700/50'
-    }`}>
-      {/* Transaction Header */}
-      <div className="flex items-center justify-between mb-4">
-        <input
-          type="text"
-          value={transaction.name}
-          onChange={(e) => onUpdate(transaction.id, 'name', e.target.value)}
-          className="text-lg font-semibold text-white bg-transparent border-b border-slate-600 focus:border-yellow-400 focus:outline-none pb-1 flex-1 mr-2"
-        />
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={() => onToggleFavorite(transaction.id)}
-            className={`p-2 rounded-lg transition-colors ${
-              transaction.isFavorite 
-                ? 'text-yellow-400 hover:text-yellow-300 bg-yellow-400/10' 
-                : 'text-slate-400 hover:text-yellow-400 hover:bg-yellow-400/10'
-            }`}
-            title={transaction.isFavorite ? 'Bỏ yêu thích' : 'Đánh dấu yêu thích'}
-          >
-            <Star className={`w-4 h-4 ${transaction.isFavorite ? 'fill-current' : ''}`} />
-          </button>
-          <button
-            onClick={() => onRemove(transaction.id)}
-            className="text-red-400 hover:text-red-300 hover:bg-red-400/10 p-2 rounded-lg transition-colors"
-            title="Xóa giao dịch"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Group Selection */}
-      <div className="mb-4">
-        <label className="text-xs text-slate-400 block mb-1">Nhóm</label>
-        <select
-          value={transaction.groupId || ''}
-          onChange={(e) => onUpdate(transaction.id, 'groupId', e.target.value || null)}
-          className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-        >
-          <option value="">Không có nhóm</option>
-          {groups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Buy Section */}
-      <div className="mb-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-2">Mua vào</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
-            <input
-              type="number"
-              value={transaction.buyQuantity}
-              onChange={(e) => onUpdate(transaction.id, 'buyQuantity', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-400">Giá/đơn vị</label>
-              <button
-                onClick={toggleBuyPriceCurrency}
-                className="flex items-center space-x-1 text-xs text-slate-400 hover:text-yellow-400 transition-colors"
-                title="Chuyển đổi đơn vị"
-              >
-                <img src={CURRENCY_IMAGES[transaction.buyPriceCurrency]} alt={`${transaction.buyPriceCurrency} Orb`} className="w-3 h-3" />
-                <ArrowUpDown className="w-3 h-3" />
-              </button>
-            </div>
-            <input
-              type="number"
-              step={transaction.buyPriceCurrency === 'divine' ? '0.001' : '1'}
-              value={transaction.buyPrice}
-              onChange={(e) => onUpdate(transaction.id, 'buyPrice', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-            {transaction.buyPrice > 0 && (
-              <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-                <span>≈ {transaction.buyPriceCurrency === 'chaos' ? chaosToDiv(transaction.buyPrice).toFixed(4) : divToChaos(transaction.buyPrice).toFixed(2)}</span>
-                <img src={CURRENCY_IMAGES[transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${transaction.buyPriceCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-slate-400 flex items-center space-x-1">
-          <span>Tổng: {getBuyTotalInChaos().toFixed(2)}</span>
-          <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-3 h-3" />
-          {getBuyTotalInChaos() > 0 && (
-            <>
-              <span>(≈ {chaosToDiv(getBuyTotalInChaos()).toFixed(3)}</span>
-              <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-3 h-3" />
-              <span>)</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Sell Section */}
-      <div className="mb-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-2">Bán ra</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
-            <input
-              type="number"
-              value={transaction.sellQuantity}
-              onChange={(e) => onUpdate(transaction.id, 'sellQuantity', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-400">Giá/đơn vị</label>
-              <button
-                onClick={toggleSellPriceCurrency}
-                className="flex items-center space-x-1 text-xs text-slate-400 hover:text-yellow-400 transition-colors"
-                title="Chuyển đổi đơn vị"
-              >
-                <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency]} alt={`${transaction.sellPriceCurrency} Orb`} className="w-3 h-3" />
-                <ArrowUpDown className="w-3 h-3" />
-              </button>
-            </div>
-            <input
-              type="number"
-              step={transaction.sellPriceCurrency === 'divine' ? '0.001' : '1'}
-              value={transaction.sellPrice}
-              onChange={(e) => onUpdate(transaction.id, 'sellPrice', Number(e.target.value))}
-              className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-              placeholder="0"
-            />
-            {transaction.sellPrice > 0 && (
-              <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-                <span>≈ {transaction.sellPriceCurrency === 'chaos' ? chaosToDiv(transaction.sellPrice).toFixed(4) : divToChaos(transaction.sellPrice).toFixed(2)}</span>
-                <img src={CURRENCY_IMAGES[transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${transaction.sellPriceCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-slate-400 flex items-center space-x-1">
-          <span>Tổng: {getSellTotalInChaos().toFixed(2)}</span>
-          <img src={CURRENCY_IMAGES.chaos} alt="Chaos Orb" className="w-3 h-3" />
-          {getSellTotalInChaos() > 0 && (
-            <>
-              <span>(≈ {chaosToDiv(getSellTotalInChaos()).toFixed(3)}</span>
-              <img src={CURRENCY_IMAGES.divine} alt="Divine Orb" className="w-3 h-3" />
-              <span>)</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Profit/Loss Section */}
-      <div className={`rounded-lg p-4 ${isProfit ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-2">
-            {isProfit ? (
-              <TrendingUp className="w-4 h-4 text-green-400" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-red-400" />
-            )}
-            <span className={`text-sm font-medium ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-              {isProfit ? 'Lợi nhuận' : 'Lỗ'}
-            </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`text-sm font-bold ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-              {profitPercentage.toFixed(2)}%
-            </div>
-            <button
-              onClick={() => setProfitDisplayCurrency(profitDisplayCurrency === 'chaos' ? 'divine' : 'chaos')}
-              className={`text-xs ${isProfit ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'} transition-colors`}
-              title="Chuyển đổi đơn vị"
-            >
-              <ArrowUpDown className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-        <div className={`text-lg font-bold flex items-center space-x-1 ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-          <span>{isProfit ? '+' : ''}{getProfitInDisplayCurrency().toFixed(profitDisplayCurrency === 'chaos' ? 2 : 3)}</span>
-          <img src={CURRENCY_IMAGES[profitDisplayCurrency]} alt={`${profitDisplayCurrency} Orb`} className="w-4 h-4" />
-        </div>
-        <div className="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-          <span>≈ {profitDisplayCurrency === 'chaos' ? chaosToDiv(profit).toFixed(3) : divToChaos(chaosToDiv(profit)).toFixed(2)}</span>
-          <img src={CURRENCY_IMAGES[profitDisplayCurrency === 'chaos' ? 'divine' : 'chaos']} alt={`${profitDisplayCurrency === 'chaos' ? 'divine' : 'chaos'} Orb`} className="w-3 h-3" />
-        </div>
-      </div>
+      {/* Toast Provider */}
+      <ToastProvider />
     </div>
   );
 }

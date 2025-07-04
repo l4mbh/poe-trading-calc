@@ -1,3 +1,68 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom Toast Styling */
+.Toastify__toast-container {
+  z-index: 9999;
+}
+
+.Toastify__toast {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.Toastify__toast--success {
+  background: #064e3b;
+  border-color: #10b981;
+  color: #d1fae5;
+}
+
+.Toastify__toast--error {
+  background: #7f1d1d;
+  border-color: #ef4444;
+  color: #fecaca;
+}
+
+.Toastify__toast--warning {
+  background: #78350f;
+  border-color: #f59e0b;
+  color: #fef3c7;
+}
+
+.Toastify__toast--info {
+  background: #1e3a8a;
+  border-color: #3b82f6;
+  color: #dbeafe;
+}
+
+.Toastify__progress-bar {
+  background: linear-gradient(to right, #fbbf24, #f59e0b);
+}
+
+.Toastify__progress-bar--success {
+  background: linear-gradient(to right, #10b981, #059669);
+}
+
+.Toastify__progress-bar--error {
+  background: linear-gradient(to right, #ef4444, #dc2626);
+}
+
+.Toastify__progress-bar--warning {
+  background: linear-gradient(to right, #f59e0b, #d97706);
+}
+
+.Toastify__progress-bar--info {
+  background: linear-gradient(to right, #3b82f6, #2563eb);
+}
+
+.Toastify__close-button {
+  color: #94a3b8;
+}
+
+.Toastify__close-button:hover {
+  color: #f1f5f9;
+}
