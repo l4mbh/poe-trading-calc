@@ -61,6 +61,28 @@ export function TransactionCard({
     return inputValue.replace(',', '.');
   };
 
+  // Helper function để validate và parse number từ input
+  const parseNumberFromInput = (inputValue: string): number | null => {
+    if (inputValue.trim() === '') return 0;
+    
+    const normalizedInput = parseInputValue(inputValue);
+    
+    // Cho phép input incomplete như "1." hoặc "1," - return null để không update
+    if (normalizedInput.endsWith('.') || normalizedInput.endsWith(',')) {
+      return null;
+    }
+    
+    // Nếu input chứa operators toán học, evaluate expression
+    if (/[+\-*/÷×()]/.test(normalizedInput)) {
+      const result = evaluateExpression(normalizedInput);
+      return isNaN(result) ? null : result;
+    } else {
+      // Nếu là số bình thường
+      const numValue = Number(normalizedInput);
+      return isNaN(numValue) ? null : numValue;
+    }
+  };
+
   // Tính toán giá trị để hiển thị trong input dựa trên mode
   const getSellInputValue = () => {
     if (sellPriceMode === 'total') {
@@ -242,14 +264,14 @@ export function TransactionCard({
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
             <input
               type="text"
-              value={formatDisplayValue(transaction.buyQuantity)}
-              onChange={(e) => {
-                const value = parseInputValue(e.target.value);
-                if (value.trim() === '') {
-                  onUpdate(transaction.id, 'buyQuantity', 0);
-                } else {
-                  const numValue = Number(value);
-                  if (!isNaN(numValue)) onUpdate(transaction.id, 'buyQuantity', numValue);
+              key={`buyQuantity-${transaction.buyQuantity}`}
+              defaultValue={formatDisplayValue(transaction.buyQuantity)}
+              onBlur={(e) => {
+                const result = parseNumberFromInput(e.target.value);
+                if (result !== null) {
+                  onUpdate(transaction.id, 'buyQuantity', result);
+                  // Format lại sau khi blur
+                  e.target.value = formatDisplayValue(result);
                 }
               }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
@@ -270,8 +292,15 @@ export function TransactionCard({
             </div>
             <input
               type="text"
-              value={formatDisplayValue(transaction.buyPrice)}
-              onChange={(e) => handleBuyPriceChange(e.target.value)}
+              key={`buyPrice-${transaction.buyPrice}`}
+              defaultValue={formatDisplayValue(transaction.buyPrice)}
+              onBlur={(e) => {
+                handleBuyPriceChange(e.target.value);
+                // Format lại sau khi blur nếu có giá trị hợp lệ
+                if (transaction.buyPrice > 0) {
+                  e.target.value = formatDisplayValue(transaction.buyPrice);
+                }
+              }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
               placeholder="Ví dụ: 40/30 hoặc 1,5"
             />
@@ -320,14 +349,14 @@ export function TransactionCard({
             <label className="text-xs text-slate-400 block mb-1">Số lượng</label>
             <input
               type="text"
-              value={formatDisplayValue(transaction.sellQuantity)}
-              onChange={(e) => {
-                const value = parseInputValue(e.target.value);
-                if (value.trim() === '') {
-                  onUpdate(transaction.id, 'sellQuantity', 0);
-                } else {
-                  const numValue = Number(value);
-                  if (!isNaN(numValue)) onUpdate(transaction.id, 'sellQuantity', numValue);
+              key={`sellQuantity-${transaction.sellQuantity}`}
+              defaultValue={formatDisplayValue(transaction.sellQuantity)}
+              onBlur={(e) => {
+                const result = parseNumberFromInput(e.target.value);
+                if (result !== null) {
+                  onUpdate(transaction.id, 'sellQuantity', result);
+                  // Format lại sau khi blur
+                  e.target.value = formatDisplayValue(result);
                 }
               }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
@@ -350,8 +379,13 @@ export function TransactionCard({
             </div>
             <input
               type="text"
-              value={getSellInputValue()}
-              onChange={(e) => handleSellPriceChange(e.target.value)}
+              key={`sellPrice-${transaction.sellPrice}-${sellPriceMode}`}
+              defaultValue={getSellInputValue()}
+              onBlur={(e) => {
+                handleSellPriceChange(e.target.value);
+                // Format lại sau khi blur
+                e.target.value = getSellInputValue();
+              }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
               placeholder={sellPriceMode === 'total' ? 'Ví dụ: 1000+500 (tổng giá)' : 'Ví dụ: 40/30 hoặc 1,5'}
             />
