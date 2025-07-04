@@ -1,25 +1,34 @@
-export const chaosToDiv = (chaosAmount: number, divineToChaoRate: number) => {
+import { STORAGE_KEYS } from "./constants";
+
+const getDivineToChaoRate = (): number => {
+  const stored = localStorage.getItem(STORAGE_KEYS.EXCHANGE_RATE);
+  return stored ? parseFloat(stored) : 180;
+};
+
+export const chaosToDiv = (chaosAmount: number) => {
+  const divineToChaoRate = getDivineToChaoRate();
   return chaosAmount / divineToChaoRate;
 };
 
-export const divToChaos = (divAmount: number, divineToChaoRate: number) => {
+export const divToChaos = (divAmount: number) => {
+  const divineToChaoRate = getDivineToChaoRate();
   return divAmount * divineToChaoRate;
 };
 
 export const convertPrice = (
   price: number, 
   fromCurrency: 'chaos' | 'divine', 
-  toCurrency: 'chaos' | 'divine',
-  divineToChaoRate: number
+  toCurrency: 'chaos' | 'divine'
 ) => {
   if (fromCurrency === toCurrency) return price;
-  if (fromCurrency === 'chaos' && toCurrency === 'divine') return chaosToDiv(price, divineToChaoRate);
-  if (fromCurrency === 'divine' && toCurrency === 'chaos') return divToChaos(price, divineToChaoRate);
+  const divineToChaoRate = getDivineToChaoRate();
+  if (fromCurrency === 'chaos' && toCurrency === 'divine') return chaosToDiv(price);
+  if (fromCurrency === 'divine' && toCurrency === 'chaos') return divToChaos(price);
   return price;
 };
 
-export const getPriceInChaos = (price: number, currency: 'chaos' | 'divine', divineToChaoRate: number) => {
-  return currency === 'chaos' ? price : divToChaos(price, divineToChaoRate);
+export const getPriceInChaos = (price: number, currency: 'chaos' | 'divine') => {
+  return currency === 'chaos' ? price : divToChaos(price);
 };
 
 export const formatTime = (date: Date | string) => {

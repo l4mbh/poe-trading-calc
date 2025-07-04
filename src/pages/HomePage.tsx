@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
+import { LayoutGrid, Table, MoreHorizontal } from "lucide-react";
 
 import {
   Transaction,
@@ -8,20 +9,13 @@ import {
   ExportData,
   LegacyTransaction,
 } from "../types";
-import { STORAGE_KEYS, GROUP_COLORS, POE_LEAGUES } from "../utils/constants";
-import {
-  chaosToDiv,
-  divToChaos,
-  convertPrice,
-  getPriceInChaos,
-} from "../utils/currencyUtils";
-import { fetchDivineToChaoRate, formatLeagueName } from "../utils/apiService";
+import { STORAGE_KEYS, GROUP_COLORS } from "../utils/constants";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useAppContext } from "../contexts/AppContext";
 import {
   showSuccessToast,
   showErrorToast,
   showInfoToast,
-  showWarningToast,
   TOAST_MESSAGES,
 } from "../utils/toastUtils";
 import { StickyLeftSidebar } from "../components/StickyLeftSidebar";
@@ -37,10 +31,29 @@ import NoSearchResult from "../components/home/NoSearchResult";
 
 export default function HomePage() {
   const { searchTerm, setSearchTerm } = useOutletContext<{ searchTerm: string; setSearchTerm: (v: string) => void }>();
-  const [divineToChaoRate, setDivineToChaoRate] = useLocalStorage<number>(
-    STORAGE_KEYS.EXCHANGE_RATE,
-    180
-  );
+  const {
+    setGetTotalProfitByFilter,
+    setGetCompletedProfitByFilter,
+    setDivineToChaoRate: setContextDivineToChaoRate,
+    setTotalProfitCurrency: setContextTotalProfitCurrency,
+    setProfitMode: setContextProfitMode,
+    showSidebar,
+    setGroups: setContextGroups,
+    chaosToDiv,
+    divToChaos,
+    convertPrice,
+    getPriceInChaos,
+    divineToChaoRate,
+    onToggleSidebar,
+    selectedLeague,
+    setSelectedLeague,
+    apiRate,
+    apiLastUpdated,
+    isLoadingApiRate,
+    enableApiCalls,
+    setEnableApiCalls,
+    loadApiRate
+  } = useAppContext();
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>(
     STORAGE_KEYS.TRANSACTIONS,
     []
@@ -63,24 +76,9 @@ export default function HomePage() {
   const [profitFilter, setProfitFilter] = useLocalStorage<
     "all" | "selected" | string
   >(STORAGE_KEYS.PROFIT_FILTER, "all");
-
-  // New states for API integration
-  const [selectedLeague, setSelectedLeague] = useLocalStorage<string>(
-    STORAGE_KEYS.SELECTED_LEAGUE,
-    POE_LEAGUES[0]
-  );
-  const [apiRate, setApiRate] = useLocalStorage<number | null>(
-    STORAGE_KEYS.API_RATE,
-    null
-  );
-  const [apiLastUpdated, setApiLastUpdated] = useLocalStorage<Date | null>(
-    STORAGE_KEYS.API_LAST_UPDATED,
-    null
-  );
-  const [isLoadingApiRate, setIsLoadingApiRate] = useState<boolean>(false);
-  const [enableApiCalls, setEnableApiCalls] = useLocalStorage<boolean>(
-    STORAGE_KEYS.ENABLE_API_CALLS,
-    true
+  const [profitMode, setProfitMode] = useLocalStorage<"active" | "completed">(
+    STORAGE_KEYS.PROFIT_MODE,
+    "active"
   );
 
   // Export/Import modal states
@@ -92,8 +90,6 @@ export default function HomePage() {
     "idle" | "success" | "error"
   >("idle");
   const [importError, setImportError] = useState<string>("");
-
-
 
   // Action buttons collapsed state
   const [isActionsCollapsed, setIsActionsCollapsed] = useState<boolean>(true);
@@ -125,87 +121,6 @@ export default function HomePage() {
       console.error("Error migrating data:", error);
     }
   }, [transactions]);
-
-  // Load API rate on component mount and when league changes
-  useEffect(() => {
-    if (enableApiCalls) {
-      loadApiRate();
-    }
-  }, [selectedLeague, enableApiCalls]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadApiRate = async () => {
-    if (!enableApiCalls) {
-      showInfoToast("API calls đã bị tắt. Sử dụng tỷ giá thủ công.");
-      return;
-    }
-
-    setIsLoadingApiRate(true);
-    try {
-      const formattedLeague = formatLeagueName(selectedLeague);
-      const rate = await fetchDivineToChaoRate(formattedLeague);
-      setApiRate(rate);
-      setApiLastUpdated(new Date());
-
-      // If user doesn't have a manual rate set or it's default value, use API rate
-      if (!divineToChaoRate || divineToChaoRate === 180) {
-        setDivineToChaoRate(rate);
-        showSuccessToast(
-          `Đã cập nhật tỷ giá từ ${formattedLeague}: ${rate.toFixed(2)} Chaos`
-        );
-      } else {
-        showInfoToast(
-          `Tỷ giá API ${formattedLeague}: ${rate.toFixed(
-            2
-          )} Chaos (Giữ nguyên tỷ giá thủ công)`
-        );
-      }
-    } catch (error) {
-      console.error("Failed to load API rate:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Lỗi không xác định";
-
-      // Set fallback rates based on league
-      const getFallbackRate = (league: string): number => {
-        const lowerLeague = league.toLowerCase();
-
-        // Known approximate rates for popular leagues
-        if (lowerLeague.includes("standard")) return 200;
-        if (lowerLeague.includes("hardcore")) return 185;
-        if (lowerLeague.includes("mercenaries")) return 210;
-        if (lowerLeague.includes("settlers")) return 195;
-        if (lowerLeague.includes("crucible")) return 180;
-        if (lowerLeague.includes("sanctum")) return 175;
-        if (lowerLeague.includes("kalandra")) return 190;
-
-        // Default for unknown leagues
-        return 180;
-      };
-
-      // Only show detailed error if this is not a network/CORS issue
-      if (
-        errorMessage.includes("CORS") ||
-        errorMessage.includes("network") ||
-        errorMessage.includes("fetch")
-      ) {
-        showWarningToast(
-          `POE.ninja API hiện không khả dụng (CORS). Sử dụng tỷ giá dự phòng.`
-        );
-      } else {
-        showWarningToast(errorMessage);
-      }
-
-      // Fallback: nếu chưa có tỷ giá nào, dùng giá trị mặc định hợp lý dựa trên league
-      if (!divineToChaoRate || divineToChaoRate === 180) {
-        const fallbackRate = getFallbackRate(selectedLeague);
-        setDivineToChaoRate(fallbackRate);
-        showInfoToast(
-          `Sử dụng tỷ giá dự phòng cho ${selectedLeague}: ${fallbackRate} Chaos`
-        );
-      }
-    } finally {
-      setIsLoadingApiRate(false);
-    }
-  };
 
   const resetTransaction = (id: string) => {
     setTransactions(
@@ -271,32 +186,6 @@ export default function HomePage() {
     const durationText = sellingDuration ? ` (bán trong ${sellingDuration.toFixed(1)}h)` : '';
     showSuccessToast(`Đã lưu giao dịch "${transaction.name}" với lợi nhuận ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} chaos${durationText}`);
   };
-
-  const updateExchangeRate = async () => {
-    await loadApiRate();
-  };
-
-  const handleLeagueChange = (league: string) => {
-    setSelectedLeague(league);
-    showInfoToast(`Đã chuyển sang league: ${league}`);
-  };
-
-  const handleManualRateChange = (rate: number) => {
-    setDivineToChaoRate(rate);
-  };
-
-  const handleToggleApiCalls = () => {
-    setEnableApiCalls(!enableApiCalls);
-    if (!enableApiCalls) {
-      showInfoToast("Đã bật API calls. Sẽ tự động tải tỷ giá từ POE.ninja.");
-      // Load API rate immediately when enabled
-      setTimeout(() => loadApiRate(), 100);
-    } else {
-      showInfoToast("Đã tắt API calls. Chỉ sử dụng tỷ giá thủ công.");
-    }
-  };
-
-
 
   const addTransaction = (groupId: string | null = null) => {
     const newTransaction: Transaction = {
@@ -402,61 +291,42 @@ export default function HomePage() {
     setEditingGroupName("");
   };
 
-  // Currency conversion functions with divineToChaoRate parameter
-  const chaosToDivFn = (chaosAmount: number) => {
-    return chaosToDiv(chaosAmount, divineToChaoRate);
-  };
-
-  const divToChaosFn = (divAmount: number) => {
-    return divToChaos(divAmount, divineToChaoRate);
-  };
-
   const convertPriceFn = (
     price: number,
     fromCurrency: "chaos" | "divine",
     toCurrency: "chaos" | "divine"
   ) => {
-    return convertPrice(price, fromCurrency, toCurrency, divineToChaoRate);
+    return convertPrice(price, fromCurrency, toCurrency);
   };
 
   const getPriceInChaosFn = (price: number, currency: "chaos" | "divine") => {
-    return getPriceInChaos(price, currency, divineToChaoRate);
+    return getPriceInChaos(price, currency);
   };
 
-  const calculateProfit = (transaction: Transaction) => {
-    const buyPriceInChaos = getPriceInChaosFn(
+  const calculateProfit = useCallback((transaction: Transaction) => {
+    const buyTotalInChaos = getPriceInChaosFn(
       transaction.buyPrice,
       transaction.buyPriceCurrency
-    );
-    const sellPriceInChaos = getPriceInChaosFn(
+    ) * transaction.buyQuantity;
+
+    const sellTotalInChaos = getPriceInChaosFn(
       transaction.sellPrice,
       transaction.sellPriceCurrency
-    );
+    ) * transaction.sellQuantity;
 
-    const totalBuyValue = transaction.buyQuantity * buyPriceInChaos;
-    const totalSellValue = transaction.sellQuantity * sellPriceInChaos;
-    const profit = totalSellValue - totalBuyValue;
-    const profitPercentage =
-      totalBuyValue > 0 ? (profit / totalBuyValue) * 100 : 0;
+    const profit = sellTotalInChaos - buyTotalInChaos;
+    const profitPercentage = buyTotalInChaos > 0 ? (profit / buyTotalInChaos) * 100 : 0;
+
     return { profit, profitPercentage };
+  }, [getPriceInChaosFn]);
+
+  const getFilteredTransactions = () => {
+    return transactions.filter((transaction) =>
+      transaction.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   };
 
-//   const getTotalProfit = () => {
-//     const filteredTransactions = getFilteredTransactions();
-//     const totalProfitInChaos = filteredTransactions.reduce(
-//       (total, transaction) => {
-//         const { profit } = calculateProfit(transaction);
-//         return total + profit;
-//       },
-//       0
-//     );
-
-//     return totalProfitCurrency === "chaos"
-//       ? totalProfitInChaos
-//       : chaosToDivFn(totalProfitInChaos);
-//   };
-
-  const getTotalProfitByFilter = (filter: "all" | "selected" | string) => {
+  const getTotalProfitByFilter = useCallback((filter: "all" | "selected" | string) => {
     let transactionsToCalculate: Transaction[];
 
     if (filter === "all") {
@@ -482,14 +352,31 @@ export default function HomePage() {
 
     return totalProfitCurrency === "chaos"
       ? totalProfitInChaos
-      : chaosToDivFn(totalProfitInChaos);
-  };
+      : chaosToDiv ? chaosToDiv(totalProfitInChaos) : (totalProfitInChaos / divineToChaoRate);
+  }, [getFilteredTransactions, calculateProfit, totalProfitCurrency, chaosToDiv, divineToChaoRate]);
 
-  const getFilteredTransactions = () => {
-    return transactions.filter((transaction) =>
-      transaction.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const getCompletedProfitByFilter = useCallback((filter: "all" | "selected" | string) => {
+    let completedTransactionsToCalculate: CompletedTransaction[];
+
+    if (filter === "all") {
+      completedTransactionsToCalculate = completedTransactions;
+    } else if (filter === "selected") {
+      completedTransactionsToCalculate = completedTransactions;
+    } else {
+      completedTransactionsToCalculate = completedTransactions;
+    }
+
+    const totalProfitInChaos = completedTransactionsToCalculate.reduce(
+      (total, transaction) => {
+        return total + transaction.profit;
+      },
+      0
     );
-  };
+
+    return totalProfitCurrency === "chaos"
+      ? totalProfitInChaos
+      : chaosToDiv ? chaosToDiv(totalProfitInChaos) : (totalProfitInChaos / divineToChaoRate);
+  }, [completedTransactions, totalProfitCurrency, chaosToDiv, divineToChaoRate]);
 
   const getSortedTransactions = () => {
     const filtered = getFilteredTransactions();
@@ -553,8 +440,8 @@ export default function HomePage() {
         version: "1.0",
         profitFilter,
         totalProfitCurrency,
-        selectedLeague,
-        enableApiCalls,
+        selectedLeague: "",
+        enableApiCalls: true,
       };
 
       const dataStr = JSON.stringify(exportData, null, 2);
@@ -618,7 +505,7 @@ export default function HomePage() {
       setGroups(importedData.groups);
 
       if (importedData.divineToChaoRate) {
-        setDivineToChaoRate(importedData.divineToChaoRate);
+        setContextDivineToChaoRate(importedData.divineToChaoRate);
       }
 
       // Restore user settings if available
@@ -628,14 +515,6 @@ export default function HomePage() {
 
       if (importedData.totalProfitCurrency !== undefined) {
         setTotalProfitCurrency(importedData.totalProfitCurrency);
-      }
-
-      if (importedData.selectedLeague !== undefined) {
-        setSelectedLeague(importedData.selectedLeague);
-      }
-
-      if (importedData.enableApiCalls !== undefined) {
-        setEnableApiCalls(importedData.enableApiCalls);
       }
 
       setImportStatus("success");
@@ -672,34 +551,63 @@ export default function HomePage() {
     }
   };
 
+  // Register functions with AppContext
+  useEffect(() => {
+    setGetTotalProfitByFilter(() => getTotalProfitByFilter);
+    setGetCompletedProfitByFilter(() => getCompletedProfitByFilter);
+  }, [getTotalProfitByFilter, getCompletedProfitByFilter, setGetTotalProfitByFilter, setGetCompletedProfitByFilter]);
+
+  // Sync state with AppContext
+  useEffect(() => {
+    setContextDivineToChaoRate(divineToChaoRate);
+  }, [divineToChaoRate, setContextDivineToChaoRate]);
+
+  useEffect(() => {
+    setContextTotalProfitCurrency(totalProfitCurrency);
+  }, [totalProfitCurrency, setContextTotalProfitCurrency]);
+
+  useEffect(() => {
+    setContextProfitMode(profitMode);
+  }, [profitMode, setContextProfitMode]);
+
+  // Sync groups with AppContext
+  useEffect(() => {
+    setContextGroups(groups);
+  }, [groups, setContextGroups]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Sticky Left Sidebar */}
-      <StickyLeftSidebar
-        divineToChaoRate={divineToChaoRate}
-        totalProfitCurrency={totalProfitCurrency}
-        getTotalProfitByFilter={getTotalProfitByFilter}
-        chaosToDiv={chaosToDivFn}
-        divToChaos={divToChaosFn}
-        onUpdateExchangeRate={updateExchangeRate}
-        onToggleTotalProfitCurrency={() =>
-          setTotalProfitCurrency(
-            totalProfitCurrency === "chaos" ? "divine" : "chaos"
-          )
-        }
-        selectedLeague={selectedLeague}
-        apiRate={apiRate}
-        apiLastUpdated={apiLastUpdated}
-        isLoadingApiRate={isLoadingApiRate}
-        enableApiCalls={enableApiCalls}
-        onLeagueChange={handleLeagueChange}
-        onManualRateChange={handleManualRateChange}
-        onToggleApiCalls={handleToggleApiCalls}
-        groups={groups}
-        profitFilter={profitFilter}
-                onProfitFilterChange={setProfitFilter}
-        onSidebarToggle={() => {}}
-      />
+      {showSidebar && (
+        <StickyLeftSidebar
+          divineToChaoRate={divineToChaoRate}
+          totalProfitCurrency={totalProfitCurrency}
+          getTotalProfitByFilter={getTotalProfitByFilter}
+          getCompletedProfitByFilter={getCompletedProfitByFilter}
+          onUpdateExchangeRate={loadApiRate}
+          onToggleTotalProfitCurrency={() =>
+            setTotalProfitCurrency(
+              totalProfitCurrency === "chaos" ? "divine" : "chaos"
+            )
+          }
+          selectedLeague={selectedLeague}
+          apiRate={apiRate}
+          apiLastUpdated={apiLastUpdated}
+          isLoadingApiRate={isLoadingApiRate}
+          enableApiCalls={enableApiCalls}
+          onLeagueChange={setSelectedLeague}
+          onManualRateChange={setContextDivineToChaoRate}
+          onToggleApiCalls={() => setEnableApiCalls(!enableApiCalls)}
+          groups={groups}
+          profitFilter={profitFilter}
+          onProfitFilterChange={setProfitFilter}
+          profitMode={profitMode}
+          onProfitModeChange={setProfitMode}
+          onSidebarToggle={onToggleSidebar}
+          chaosToDiv={chaosToDiv ? chaosToDiv : (chaosAmount) => chaosAmount / divineToChaoRate}
+          divToChaos={divToChaos ? divToChaos : (divAmount) => divAmount * divineToChaoRate}
+        />
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -741,32 +649,37 @@ export default function HomePage() {
 
               <div className="flex items-center space-x-2 mt-4 sm:mt-0">
                 <span className="text-slate-400 text-sm">Kiểu hiển thị:</span>
-                <button
-                  className={`px-3 py-1 rounded-lg text-sm font-medium border transition-colors ${
-                    transactionViewType === "card"
-                      ? "bg-yellow-500 text-slate-900 border-yellow-500"
-                      : "bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600"
-                  }`}
-                  onClick={() => setTransactionViewType("card")}
-                >
-                  Card
-                </button>
-                <button
-                  className={`px-3 py-1 rounded-lg text-sm font-medium border transition-colors ${
-                    transactionViewType === "row"
-                      ? "bg-yellow-500 text-slate-900 border-yellow-500"
-                      : "bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600"
-                  }`}
-                  onClick={() => setTransactionViewType("row")}
-                >
-                  Table/Row
-                </button>
-                <button
-                  className={`px-3 py-1 rounded-lg text-sm font-medium border transition-colors opacity-50 cursor-not-allowed`}
-                  disabled
-                >
-                  Option khác
-                </button>
+                <div className="inline-flex rounded-lg bg-slate-800 border border-slate-700 overflow-hidden">
+                  <button
+                    className={`p-2 transition-colors focus:outline-none ${
+                      transactionViewType === "card"
+                        ? "bg-yellow-500 text-slate-900"
+                        : "text-slate-300 hover:bg-slate-700"
+                    }`}
+                    onClick={() => setTransactionViewType("card")}
+                    title="Hiển thị dạng thẻ (Card)"
+                  >
+                    <LayoutGrid className="w-5 h-5" />
+                  </button>
+                  <button
+                    className={`p-2 transition-colors focus:outline-none border-l border-slate-700 ${
+                      transactionViewType === "row"
+                        ? "bg-yellow-500 text-slate-900"
+                        : "text-slate-300 hover:bg-slate-700"
+                    }`}
+                    onClick={() => setTransactionViewType("row")}
+                    title="Hiển thị dạng bảng (Table/Row)"
+                  >
+                    <Table className="w-5 h-5" />
+                  </button>
+                  <button
+                    className="p-2 text-slate-400 opacity-50 cursor-not-allowed border-l border-slate-700"
+                    disabled
+                    title="Tùy chọn khác (sắp có)"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -793,8 +706,8 @@ export default function HomePage() {
                   removeTransaction={removeTransaction}
                   toggleFavorite={toggleFavorite}
                   calculateProfit={calculateProfit}
-                  chaosToDiv={chaosToDivFn}
-                  divToChaos={divToChaosFn}
+                  chaosToDiv={chaosToDiv ? chaosToDiv : (chaosAmount) => chaosAmount / divineToChaoRate}
+                  divToChaos={divToChaos ? divToChaos : (divAmount) => divAmount * divineToChaoRate}
                   convertPrice={convertPriceFn}
                   getPriceInChaos={getPriceInChaosFn}
                   onResetTransaction={resetTransaction}
@@ -810,8 +723,8 @@ export default function HomePage() {
                   removeTransaction={removeTransaction}
                   toggleFavorite={toggleFavorite}
                   calculateProfit={calculateProfit}
-                  chaosToDiv={chaosToDivFn}
-                  divToChaos={divToChaosFn}
+                  chaosToDiv={chaosToDiv ? chaosToDiv : (chaosAmount) => chaosAmount / divineToChaoRate}
+                  divToChaos={divToChaos ? divToChaos : (divAmount) => divAmount * divineToChaoRate}
                   convertPrice={convertPriceFn}
                   getPriceInChaos={getPriceInChaosFn}
                   onResetTransaction={resetTransaction}

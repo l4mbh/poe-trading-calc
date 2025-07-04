@@ -77,37 +77,19 @@ export function Footer() {
               >
                 Chia sẻ
               </NavLink>
-              <NavLink
-                to="/updates"
-                className={({ isActive }) =>
-                  `block text-sm transition-colors ${
-                    isActive
-                      ? "text-yellow-400"
-                      : "text-slate-400 hover:text-white"
-                  }`
-                }
-              >
-                Cập nhật
-              </NavLink>
             </nav>
           </div>
 
           {/* Latest Updates */}
           <div>
             <h3 className="text-lg font-semibold text-white mb-3">Cập nhật mới nhất</h3>
-            <div className="space-y-3">
-              <div className="text-sm">
-                <p className="text-yellow-400 font-medium">v2.1.0 - 19/12/2024</p>
-                <p className="text-slate-400">Thêm tính năng theo dõi thời gian bán và thống kê Divine</p>
-              </div>
-              <div className="text-sm">
-                <p className="text-yellow-400 font-medium">v2.0.0 - 18/12/2024</p>
-                <p className="text-slate-400">Cải thiện giao diện và thêm trang thống kê</p>
-              </div>
-              <div className="text-sm">
-                <p className="text-yellow-400 font-medium">v1.5.0 - 17/12/2024</p>
-                <p className="text-slate-400">Hỗ trợ tính toán phức tạp và nhóm giao dịch</p>
-              </div>
+            <div className="flex flex-col items-start space-y-3">
+              <NavLink
+                to="/updates"
+                className="inline-block px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-semibold rounded-lg shadow transition-colors"
+              >
+                Chi tiết các cập nhật
+              </NavLink>
             </div>
           </div>
         </div>

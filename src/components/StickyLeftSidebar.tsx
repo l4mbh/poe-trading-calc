@@ -14,6 +14,7 @@ interface StickyLeftSidebarProps {
   divineToChaoRate: number;
   totalProfitCurrency: "chaos" | "divine";
   getTotalProfitByFilter: (filter: "all" | "selected" | string) => number;
+  getCompletedProfitByFilter: (filter: "all" | "selected" | string) => number;
   chaosToDiv: (chaosAmount: number) => number;
   divToChaos: (divAmount: number) => number;
   onUpdateExchangeRate: () => void;
@@ -30,12 +31,15 @@ interface StickyLeftSidebarProps {
   profitFilter: "all" | "selected" | string;
   onProfitFilterChange: (filter: "all" | "selected" | string) => void;
   onSidebarToggle: (isCollapsed: boolean) => void;
+  profitMode: "active" | "completed";
+  onProfitModeChange: (mode: "active" | "completed") => void;
 }
 
 export function StickyLeftSidebar({
   divineToChaoRate,
   totalProfitCurrency,
   getTotalProfitByFilter,
+  getCompletedProfitByFilter,
   chaosToDiv,
   divToChaos,
   onUpdateExchangeRate,
@@ -52,6 +56,8 @@ export function StickyLeftSidebar({
   profitFilter,
   onProfitFilterChange,
   onSidebarToggle,
+  profitMode,
+  onProfitModeChange,
 }: StickyLeftSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showLeagueDropdown, setShowLeagueDropdown] = useState(false);
@@ -202,7 +208,7 @@ export function StickyLeftSidebar({
               <div className="text-xs text-slate-400 mb-1">Profit</div>
               <div
                 className={`text-sm font-bold flex items-center justify-center space-x-1 cursor-pointer ${
-                  getTotalProfitByFilter(profitFilter) >= 0
+                  (profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)) >= 0
                     ? "text-green-400"
                     : "text-red-400"
                 }`}
@@ -210,7 +216,7 @@ export function StickyLeftSidebar({
                 title="Click để chuyển đổi đơn vị"
               >
                 <span className="text-center">
-                  {getTotalProfitByFilter(profitFilter).toFixed(
+                  {(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
                     totalProfitCurrency === "chaos" ? 0 : 2
                   )}
                 </span>
@@ -219,6 +225,9 @@ export function StickyLeftSidebar({
                   alt={`${totalProfitCurrency} Orb`}
                   className="w-3 h-3"
                 />
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {profitMode === "active" ? "Đang giao dịch" : "Đã bán"}
               </div>
             </div>
           </div>
@@ -448,6 +457,32 @@ export function StickyLeftSidebar({
                 </button>
               </div>
 
+              {/* Profit Mode Toggle */}
+              <div className="mb-3">
+                <div className="flex bg-slate-800/50 rounded border border-slate-600 p-1">
+                  <button
+                    onClick={() => onProfitModeChange("active")}
+                    className={`flex-1 text-xs py-1 px-2 rounded transition-colors ${
+                      profitMode === "active"
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : "text-slate-400 hover:text-slate-300"
+                    }`}
+                  >
+                    Đang giao dịch
+                  </button>
+                  <button
+                    onClick={() => onProfitModeChange("completed")}
+                    className={`flex-1 text-xs py-1 px-2 rounded transition-colors ${
+                      profitMode === "completed"
+                        ? "bg-green-500/20 text-green-400"
+                        : "text-slate-400 hover:text-slate-300"
+                    }`}
+                  >
+                    Đã bán
+                  </button>
+                </div>
+              </div>
+
               {/* Profit Filter */}
               <div className="mb-3">
                 <select
@@ -467,13 +502,13 @@ export function StickyLeftSidebar({
 
               <div
                 className={`text-xl font-bold flex items-center space-x-2 mb-2 ${
-                  getTotalProfitByFilter(profitFilter) >= 0
+                  (profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)) >= 0
                     ? "text-green-400"
                     : "text-red-400"
                 }`}
               >
                 <span>
-                  {getTotalProfitByFilter(profitFilter).toFixed(
+                  {(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
                     totalProfitCurrency === "chaos" ? 2 : 3
                   )}
                 </span>
@@ -487,10 +522,10 @@ export function StickyLeftSidebar({
                 <span>
                   ≈{" "}
                   {totalProfitCurrency === "chaos"
-                    ? chaosToDiv(getTotalProfitByFilter(profitFilter)).toFixed(
+                    ? chaosToDiv(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
                         3
                       )
-                    : divToChaos(getTotalProfitByFilter(profitFilter)).toFixed(
+                    : divToChaos(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
                         2
                       )}
                 </span>

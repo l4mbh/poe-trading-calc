@@ -8,10 +8,14 @@ export const STORAGE_KEYS = {
   API_RATE: 'poe-api-rate',
   API_LAST_UPDATED: 'poe-api-last-updated',
   PROFIT_FILTER: 'poe-profit-filter',
+  PROFIT_MODE: 'poe-profit-mode',
   TOTAL_PROFIT_CURRENCY: 'poe-total-profit-currency',
   SELL_PRICE_MODE: 'poe-sell-price-mode',
   PROFIT_DISPLAY_CURRENCY: 'poe-profit-display-currency',
-  ENABLE_API_CALLS: 'poe-enable-api-calls'
+  ENABLE_API_CALLS: 'poe-enable-api-calls',
+  SHOW_EXCHANGE_RATE: 'poe-show-exchange-rate',
+  SHOW_TOTAL_PROFIT: 'poe-show-total-profit',
+  SHOW_SIDEBAR: 'poe-show-sidebar'
 } as const;
 
 export const GROUP_COLORS = [

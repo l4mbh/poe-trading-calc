@@ -3,63 +3,28 @@ import React, { useState } from "react";
 const updates = [
   {
     id: 1,
-    title: "🎯 Theo dõi thời gian bán hàng",
-    content: `- Thêm nút "Treo bán" để đánh dấu khi bắt đầu bán item\n- Tự động tính thời gian từ lúc treo bán đến lúc bán thành công\n- Hiển thị thời gian bán trong thống kê (đơn vị giờ)\n- Giúp phân tích hiệu quả thời gian bán hàng của bạn`
+    title: "🆕 Widget tỷ giá & lợi nhuận trên menu chính",
+    content: `- Thêm widget tỷ giá Divine/Chaos và tổng lợi nhuận thu gọn trên menu chính\n- Có thể mở rộng để chỉnh tỷ giá, chọn league, reload API\n- Tùy chỉnh hiển thị widget qua nút cài đặt (góc phải dưới)`
   },
   {
     id: 2,
-    title: "📊 Thống kê theo Divine Orb",
-    content: `- Trang thống kê hiển thị lợi nhuận chính bằng Divine Orb\n- Chaos Orb vẫn được hiển thị như đơn vị phụ\n- Thống kê thời gian bán trung bình\n- Hiển thị giao dịch tốt nhất và tệ nhất với thời gian bán`
+    title: "🔄 Tỷ giá tự động & chọn league",
+    content: `- Tỷ giá Divine/Chaos tự động lấy từ POE Ninja API\n- Có thể chọn league, chỉnh thủ công hoặc reload tỷ giá\n- Lưu toàn bộ cài đặt vào localStorage, tự động khôi phục khi mở lại app`
   },
   {
     id: 3,
-    title: "🎨 Cải thiện giao diện footer",
-    content: `- Bỏ phần trạng thái thừa trong footer giao dịch\n- Thay text "divine" và "chaos" bằng ảnh trực quan\n- Giao diện gọn gàng và dễ nhìn hơn\n- Footer layout với thông tin cập nhật và link Discord/GitHub`
+    title: "📊 Thống kê nâng cao & hiển thị Divine",
+    content: `- Trang thống kê hiển thị lợi nhuận chính bằng Divine Orb\n- Thêm bộ lọc, nhóm, và thống kê thời gian bán\n- Hiển thị giao dịch tốt nhất, tệ nhất, thời gian bán trung bình`
   },
   {
     id: 4,
-    title: "🔄 Nút Đã bán thông minh",
-    content: `- Khi click "Đã bán", giao dịch được lưu vào thống kê và reset về trạng thái ban đầu\n- Tự động tính toán thời gian bán nếu đã treo bán trước đó\n- Thông báo toast với thông tin lợi nhuận và thời gian bán\n- Dữ liệu được lưu theo ngày để phân tích xu hướng`
+    title: "🎨 Giao diện hiện đại, tối ưu mobile",
+    content: `- Giao diện mới, màu sắc rõ ràng, tối ưu cho điện thoại\n- Các nút thao tác lớn, dễ bấm, menu luôn hiển thị\n- Tối ưu hiệu năng và trải nghiệm người dùng`
   },
   {
     id: 5,
-    title: "📈 Trang thống kê chi tiết",
-    content: `- Thêm trang thống kê với bộ lọc theo ngày\n- Hiển thị tổng lợi nhuận, lợi nhuận trung bình\n- Thống kê số giao dịch có lãi/lỗ\n- Bảng chi tiết tất cả giao dịch đã hoàn thành`
-  },
-  {
-    id: 6,
-    title: "🎯 Giao diện mới hiện đại, dễ sử dụng",
-    content: `- Giao diện được làm mới, màu sắc rõ ràng, dễ nhìn hơn\n- Menu chính luôn hiển thị ở đầu trang, dễ dàng chuyển trang`
-  },
-  {
-    id: 7,
-    title: "🔍 Thêm thanh tìm kiếm tiện lợi",
-    content: `- Có thể tìm kiếm nhanh các giao dịch ngay trên trang chủ\n- Tìm kiếm theo tên giao dịch, thao tác mượt mà`
-  },
-  {
-    id: 8,
-    title: "📱 Tối ưu trải nghiệm trên điện thoại",
-    content: `- Giao diện tự động điều chỉnh phù hợp với màn hình nhỏ\n- Các nút bấm, menu dễ thao tác trên di động`
-  },
-  {
-    id: 9,
-    title: "📁 Quản lý nhóm giao dịch dễ dàng",
-    content: `- Có thể tạo nhiều nhóm để phân loại giao dịch\n- Di chuyển, chỉnh sửa, xóa nhóm nhanh chóng`
-  },
-  {
-    id: 10,
-    title: "📋 Xem giao dịch dạng bảng hoặc thẻ",
-    content: `- Tuỳ chọn xem giao dịch theo dạng bảng (table) hoặc thẻ (card)\n- Dễ dàng chuyển đổi chỉ với một nút bấm`
-  },
-  {
-    id: 11,
-    title: "💾 Xuất/Nhập dữ liệu tiện lợi",
-    content: `- Có thể xuất toàn bộ dữ liệu giao dịch ra file để lưu trữ hoặc chia sẻ\n- Nhập lại dữ liệu từ file chỉ với vài thao tác`
-  },
-  {
-    id: 12,
-    title: "🔔 Thông báo tự động, thao tác nhanh",
-    content: `- Hiển thị thông báo khi thêm, xóa, chỉnh sửa giao dịch hoặc nhóm\n- Thao tác mượt mà, phản hồi tức thì`
+    title: "💾 Lưu trữ & xuất nhập dữ liệu an toàn",
+    content: `- Tất cả dữ liệu và cài đặt được lưu tự động trên trình duyệt\n- Có thể xuất/nhập dữ liệu giao dịch, nhóm, cài đặt\n- Không cần đăng nhập, bảo mật tuyệt đối`
   }
 ];
 
