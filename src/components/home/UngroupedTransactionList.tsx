@@ -17,6 +17,7 @@ interface UngroupedTransactionListProps {
   onResetTransaction: (id: string) => void;
   onCompleteTransaction: (transaction: Transaction, profit: number, profitPercentage: number) => void;
   onStartSelling: (transaction: Transaction) => void;
+  onUpdateFields?: (id: string, fields: Partial<Transaction>) => void;
 }
 
 const UngroupedTransactionList: React.FC<UngroupedTransactionListProps> = ({
@@ -33,6 +34,7 @@ const UngroupedTransactionList: React.FC<UngroupedTransactionListProps> = ({
   onResetTransaction,
   onCompleteTransaction,
   onStartSelling,
+  onUpdateFields,
 }) => {
   if (!groupedTransactions.ungrouped || groupedTransactions.ungrouped.length === 0) return null;
   return (
@@ -51,6 +53,7 @@ const UngroupedTransactionList: React.FC<UngroupedTransactionListProps> = ({
             key={transaction.id}
             transaction={transaction}
             onUpdate={updateTransaction}
+            onUpdateFields={onUpdateFields}
             onRemove={removeTransaction}
             onToggleFavorite={toggleFavorite}
             calculateProfit={calculateProfit}

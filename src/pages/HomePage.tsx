@@ -243,6 +243,17 @@ export default function HomePage() {
     );
   };
 
+  const updateTransactionFields = (
+    id: string,
+    fields: Partial<Transaction>
+  ) => {
+    setTransactions(
+      transactions.map((t) =>
+        t.id === id ? { ...t, ...fields } : t
+      )
+    );
+  };
+
   const toggleFavorite = (id: string) => {
     setTransactions(
       transactions.map((t) =>
@@ -741,6 +752,7 @@ export default function HomePage() {
                   onResetTransaction={resetTransaction}
                   onCompleteTransaction={completeTransaction}
                   onStartSelling={startSelling}
+                  onUpdateFields={updateTransactionFields}
                 />
                               <UngroupedTransactionList
                   groupedTransactions={getTransactionsByGroup()}
@@ -758,6 +770,7 @@ export default function HomePage() {
                   onResetTransaction={resetTransaction}
                   onCompleteTransaction={completeTransaction}
                   onStartSelling={startSelling}
+                  onUpdateFields={updateTransactionFields}
                 />
             </>
           )}

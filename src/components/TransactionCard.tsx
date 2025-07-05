@@ -31,7 +31,8 @@ export function TransactionCard({
   onResetTransaction,
   onCompleteTransaction,
   onStartSelling,
-}: TransactionCardProps) {
+  onUpdateFields,
+}: TransactionCardProps & { onUpdateFields?: (id: string, fields: Partial<TransactionCardProps["transaction"]>) => void }) {
   const { profit, profitPercentage } = calculateProfit(transaction);
   const isProfit = profit >= 0;
   const [profitDisplayCurrency, setProfitDisplayCurrency] = useLocalStorage<
@@ -102,10 +103,6 @@ export function TransactionCard({
     return profitDisplayCurrency === "chaos" ? profit : chaosToDivFn(profit);
   };
 
-
-
-
-
   const toggleSellPriceMode = () => {
     setSellPriceMode(sellPriceMode === "unit" ? "total" : "unit");
     showSuccessToast(
@@ -121,21 +118,23 @@ export function TransactionCard({
   };
 
   const handleIconSelect = React.useCallback((iconId: string, iconType: string, iconUrl: string, iconName?: string) => {
-    // Đóng modal
     setShowImageSelector(false);
-    
-    // Cập nhật trực tiếp
-    onUpdate(transaction.id, "iconId", iconId);
-    onUpdate(transaction.id, "iconType", iconType);
-    onUpdate(transaction.id, "iconUrl", iconUrl);
-    
-    // Nếu có iconName, cập nhật tên giao dịch
-    if (iconName) {
-      onUpdate(transaction.id, "name", iconName);
+    if (onUpdateFields) {
+      onUpdateFields(transaction.id, {
+        iconId,
+        iconType,
+        iconUrl,
+        ...(iconName && { name: iconName }),
+      });
+    } else {
+      onUpdate(transaction.id, "iconId", iconId);
+      onUpdate(transaction.id, "iconType", iconType);
+      onUpdate(transaction.id, "iconUrl", iconUrl);
+      if (iconName) {
+        onUpdate(transaction.id, "name", iconName);
+      }
     }
-  }, [transaction.id, onUpdate]);
-
-
+  }, [transaction.id, onUpdate, onUpdateFields]);
 
   return (
     <div

@@ -26,6 +26,7 @@ interface GroupListProps {
   onResetTransaction: (id: string) => void;
   onCompleteTransaction: (transaction: Transaction, profit: number, profitPercentage: number) => void;
   onStartSelling: (transaction: Transaction) => void;
+  onUpdateFields: (id: string, fields: Partial<Transaction>) => void;
 }
 
 const GroupList: React.FC<GroupListProps> = ({
@@ -51,6 +52,7 @@ const GroupList: React.FC<GroupListProps> = ({
   onResetTransaction,
   onCompleteTransaction,
   onStartSelling,
+  onUpdateFields,
 }) => {
   return (
     <>
@@ -99,6 +101,7 @@ const GroupList: React.FC<GroupListProps> = ({
                     key={transaction.id}
                     transaction={transaction}
                     onUpdate={updateTransaction}
+                    onUpdateFields={onUpdateFields}
                     onRemove={removeTransaction}
                     onToggleFavorite={toggleFavorite}
                     calculateProfit={calculateProfit}
