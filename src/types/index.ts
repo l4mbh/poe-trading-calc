@@ -12,6 +12,9 @@ export interface Transaction {
   isSelected?: boolean;
   isSelling?: boolean;
   sellingStartedAt?: string; // ISO date string when selling started
+  iconId?: string; // ID của icon từ API
+  iconType?: string; // Type của icon (Currency, Oils, Scarabs, etc.)
+  iconUrl?: string; // URL của icon để hiển thị
 }
 
 export interface CompletedTransaction {
@@ -30,6 +33,9 @@ export interface CompletedTransaction {
   completedDate: string; // YYYY-MM-DD format for grouping
   sellingStartedAt?: string; // ISO date string when selling started
   sellingDuration?: number; // Duration in hours
+  iconId?: string; // ID của icon từ API
+  iconType?: string; // Type của icon (Currency, Oils, Scarabs, etc.)
+  iconUrl?: string; // URL của icon để hiển thị
 }
 
 export interface TransactionGroup {
@@ -78,4 +84,7 @@ export interface LegacyTransaction {
   groupId: string | null;
   buyPriceCurrency?: 'chaos' | 'divine';
   sellPriceCurrency?: 'chaos' | 'divine';
+  iconId?: string;
+  iconType?: string;
+  iconUrl?: string;
 } 

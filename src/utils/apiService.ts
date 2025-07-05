@@ -6,6 +6,43 @@ export interface PoeNinjaApiResponse {
   }[];
 }
 
+export interface PoeNinjaIconResponse {
+  lines: {
+    id: number;
+    name: string;
+    icon: string;
+    [key: string]: unknown;
+  }[];
+  currencyDetails?: {
+    id: number;
+    icon: string;
+    name: string;
+    tradeId: string;
+  }[];
+}
+
+export interface IconItem {
+  id: number;
+  name: string;
+  icon: string;
+  tradeId?: string;
+}
+
+export const ICON_TYPES = [
+  'Currency',
+  'Fragment', 
+  'Oil',
+  'Scarab',
+  'Fossil',
+  'Resonator',
+  'Essence',
+  'Omen',
+  'Delirium Orb',
+  'Invitation'
+] as const;
+
+export type IconType = typeof ICON_TYPES[number];
+
 export interface ExchangeRateData {
   rate: number;
   lastUpdated: Date;
@@ -117,6 +154,95 @@ export const fetchDivineToChaoRate = async (league: string): Promise<number> => 
     
     if (errorMsg.includes('404') || errorMsg.includes('League parameter is required')) {
       throw new Error(`League "${formattedLeague}" không tồn tại trên POE.ninja.`);
+    }
+    
+    throw new Error(`Lỗi API: ${errorMsg}`);
+  }
+};
+
+/**
+ * Lấy danh sách icons từ POE.ninja API theo type
+ */
+export const fetchPoeNinjaIcons = async (league: string, type: IconType): Promise<IconItem[]> => {
+  const formattedLeague = formatLeagueName(league);
+  const apiBaseUrl = getApiBaseUrl();
+  
+  try {
+    let apiUrl: string;
+    
+    // Xác định endpoint dựa trên type
+    const endpoint = (type === 'Currency' || type === 'Fragment') ? 'currencyoverview' : 'itemoverview';
+    
+    if (import.meta.env.DEV) {
+      // Development: Vite proxy format
+      apiUrl = `${apiBaseUrl}/${endpoint}?league=${encodeURIComponent(formattedLeague)}&type=${encodeURIComponent(type)}`;
+    } else {
+      // Production: Vercel serverless function format
+      apiUrl = `${apiBaseUrl}?endpoint=${endpoint}&league=${encodeURIComponent(formattedLeague)}&type=${encodeURIComponent(type)}`;
+    }
+    
+
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(15000) // 15 second timeout
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || `${response.status} ${response.statusText}`;
+      throw new Error(`API request failed: ${errorMessage}`);
+    }
+    
+    const data: PoeNinjaIconResponse = await response.json();
+    
+    // Xử lý dữ liệu dựa trên type
+    if (type === 'Currency' || type === 'Fragment') {
+      // Lấy từ currencyDetails
+      if (!data.currencyDetails || !Array.isArray(data.currencyDetails)) {
+        throw new Error(`Invalid API response structure for type "${type}"`);
+      }
+      
+      return data.currencyDetails.map(item => ({
+        id: item.id,
+        name: item.name,
+        icon: item.icon,
+        tradeId: item.tradeId
+      }));
+    } else {
+      // Lấy từ lines
+      if (!data.lines || !Array.isArray(data.lines)) {
+        throw new Error(`Invalid API response structure for type "${type}"`);
+      }
+      
+      return data.lines.map(item => ({
+        id: item.id,
+        name: item.name,
+        icon: item.icon
+      }));
+    }
+    
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
+    
+    // Kiểm tra các loại lỗi phổ biến
+    if (errorMsg.includes('timeout') || errorMsg.includes('AbortError')) {
+      throw new Error(`Timeout khi gọi API cho type "${type}". Vui lòng thử lại.`);
+    }
+    
+    if (errorMsg.includes('fetch') || errorMsg.includes('NetworkError') || errorMsg.includes('Failed to fetch')) {
+      const envHint = import.meta.env.DEV 
+        ? 'Kiểm tra dev server có đang chạy không.' 
+        : 'Kiểm tra kết nối mạng.';
+      throw new Error(`Không thể kết nối đến API. ${envHint}`);
+    }
+    
+    if (errorMsg.includes('404') || errorMsg.includes('League parameter is required')) {
+      throw new Error(`League "${formattedLeague}" hoặc type "${type}" không tồn tại trên POE.ninja.`);
     }
     
     throw new Error(`Lỗi API: ${errorMsg}`);

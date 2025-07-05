@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Trash2,
   TrendingUp,
@@ -6,6 +6,7 @@ import {
   Star,
   ArrowUpDown,
   RotateCcw,
+  Image as ImageIcon,
 } from "lucide-react";
 import { TransactionCardProps } from "../types";
 import { CURRENCY_IMAGES, STORAGE_KEYS } from "../utils/constants";
@@ -13,6 +14,8 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { showSuccessToast } from "../utils/toastUtils";
 import { TransactionFooter } from "./TransactionFooter";
 import { safeParseFloat, safeEvaluate, preciseDivide } from "../utils/mathUtils";
+import { ImageSelector } from "./ImageSelector";
+import { useAppContext } from "../contexts/AppContext";
 
 export function TransactionCard({
   transaction,
@@ -31,6 +34,9 @@ export function TransactionCard({
 }: TransactionCardProps) {
   const { profit, profitPercentage } = calculateProfit(transaction);
   const isProfit = profit >= 0;
+  
+  // Debug current transaction iconUrl
+  console.log('TransactionCard render - iconUrl:', transaction.iconUrl, 'id:', transaction.id);
   const [profitDisplayCurrency, setProfitDisplayCurrency] = useLocalStorage<
     "chaos" | "divine"
   >(STORAGE_KEYS.PROFIT_DISPLAY_CURRENCY, "chaos");
@@ -44,6 +50,8 @@ export function TransactionCard({
   const [buyQuantityInput, setBuyQuantityInput] = React.useState<string>("");
   const [sellPriceInput, setSellPriceInput] = React.useState<string>("");
   const [sellQuantityInput, setSellQuantityInput] = React.useState<string>("");
+  const [showImageSelector, setShowImageSelector] = useState(false);
+  const { selectedLeague } = useAppContext();
 
   const toggleBuyPriceCurrency = () => {
     const newCurrency =
@@ -115,6 +123,39 @@ export function TransactionCard({
     showSuccessToast("Đã reset các trường mua vào và bán ra");
   };
 
+  const handleIconSelect = (iconId: string, iconType: string, iconUrl: string, iconName?: string) => {
+    console.log('handleIconSelect called with:', { iconId, iconType, iconUrl, iconName });
+    console.log('Current transaction before update:', transaction);
+    
+    // Đóng modal trước để tránh conflict
+    setShowImageSelector(false);
+    
+    // Delay một chút để đảm bảo modal đã đóng hoàn toàn
+    setTimeout(() => {
+      onUpdate(transaction.id, "iconId", iconId);
+      onUpdate(transaction.id, "iconType", iconType);
+      onUpdate(transaction.id, "iconUrl", iconUrl);
+      
+      // Nếu có iconName, cập nhật tên giao dịch
+      if (iconName) {
+        onUpdate(transaction.id, "name", iconName);
+      }
+      
+      console.log('Updates completed');
+    }, 50);
+    
+    // Check localStorage after a short delay to see if it's saved
+    setTimeout(() => {
+      const savedTransactions = localStorage.getItem('poe-trading-calc-transactions');
+      if (savedTransactions) {
+        const transactions = JSON.parse(savedTransactions);
+        const updatedTransaction = transactions.find((t: { id: string }) => t.id === transaction.id);
+        console.log('Transaction in localStorage:', updatedTransaction);
+        console.log('IconUrl in localStorage:', updatedTransaction?.iconUrl);
+      }
+    }, 200);
+  };
+
 
 
   return (
@@ -137,6 +178,32 @@ export function TransactionCard({
             className="w-4 h-4 text-yellow-400 bg-slate-700 border-slate-600 rounded focus:ring-yellow-400 focus:ring-2"
             title="Chọn để tính tổng lợi nhuận"
           />
+          
+          {/* Icon */}
+          <button
+            onClick={() => setShowImageSelector(true)}
+            className="flex-shrink-0 w-8 h-8 rounded-lg border border-slate-600 hover:border-yellow-400 transition-colors flex items-center justify-center bg-slate-700/50"
+            title="Chọn icon"
+          >
+            {transaction.iconUrl ? (
+              <img
+                src={transaction.iconUrl}
+                alt="Transaction icon"
+                className="w-6 h-6 rounded object-contain"
+                onLoad={() => {
+                  console.log('Transaction icon loaded successfully:', transaction.iconUrl);
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  console.error('Failed to load transaction icon:', transaction.iconUrl);
+                  target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <ImageIcon className="w-4 h-4 text-slate-400" />
+            )}
+          </button>
+          
           <input
             type="text"
             value={transaction.name}
@@ -681,6 +748,19 @@ export function TransactionCard({
         onCompleteTransaction={onCompleteTransaction}
         onStartSelling={onStartSelling}
         isProfit={isProfit}
+      />
+      
+      {/* Image Selector Modal */}
+      <ImageSelector
+        isOpen={showImageSelector}
+        onClose={() => setShowImageSelector(false)}
+        onSelect={handleIconSelect}
+        currentLeague={selectedLeague}
+        currentIcon={transaction.iconUrl ? {
+          id: transaction.iconId || '',
+          type: transaction.iconType || '',
+          url: transaction.iconUrl
+        } : undefined}
       />
     </div>
   );

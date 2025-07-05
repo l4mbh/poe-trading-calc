@@ -125,6 +125,10 @@ export default function HomePage() {
           ...t,
           buyPriceCurrency: t.buyPriceCurrency || "chaos",
           sellPriceCurrency: t.sellPriceCurrency || "chaos",
+          // Icon fields sẽ được set undefined nếu không có
+          iconId: t.iconId || undefined,
+          iconType: t.iconType || undefined,
+          iconUrl: t.iconUrl || undefined,
         }));
 
         setTransactions(migratedTransactions);
@@ -152,6 +156,7 @@ export default function HomePage() {
               sellPriceCurrency: "chaos",
               isSelling: false,
               sellingStartedAt: undefined,
+              // Không reset icon khi reset transaction
             }
           : t
       )
@@ -215,6 +220,9 @@ export default function HomePage() {
       groupId: groupId,
       buyPriceCurrency: "chaos",
       sellPriceCurrency: "chaos",
+      iconId: undefined,
+      iconType: undefined,
+      iconUrl: undefined,
     };
     setTransactions([...transactions, newTransaction]);
     showSuccessToast(TOAST_MESSAGES.TRANSACTION_ADDED);
