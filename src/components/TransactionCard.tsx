@@ -34,9 +34,6 @@ export function TransactionCard({
 }: TransactionCardProps) {
   const { profit, profitPercentage } = calculateProfit(transaction);
   const isProfit = profit >= 0;
-  
-  // Debug current transaction iconUrl
-  console.log('TransactionCard render - iconUrl:', transaction.iconUrl, 'id:', transaction.id);
   const [profitDisplayCurrency, setProfitDisplayCurrency] = useLocalStorage<
     "chaos" | "divine"
   >(STORAGE_KEYS.PROFIT_DISPLAY_CURRENCY, "chaos");
@@ -123,38 +120,20 @@ export function TransactionCard({
     showSuccessToast("Đã reset các trường mua vào và bán ra");
   };
 
-  const handleIconSelect = (iconId: string, iconType: string, iconUrl: string, iconName?: string) => {
-    console.log('handleIconSelect called with:', { iconId, iconType, iconUrl, iconName });
-    console.log('Current transaction before update:', transaction);
-    
-    // Đóng modal trước để tránh conflict
+  const handleIconSelect = React.useCallback((iconId: string, iconType: string, iconUrl: string, iconName?: string) => {
+    // Đóng modal
     setShowImageSelector(false);
     
-    // Delay một chút để đảm bảo modal đã đóng hoàn toàn
-    setTimeout(() => {
-      onUpdate(transaction.id, "iconId", iconId);
-      onUpdate(transaction.id, "iconType", iconType);
-      onUpdate(transaction.id, "iconUrl", iconUrl);
-      
-      // Nếu có iconName, cập nhật tên giao dịch
-      if (iconName) {
-        onUpdate(transaction.id, "name", iconName);
-      }
-      
-      console.log('Updates completed');
-    }, 50);
+    // Cập nhật trực tiếp
+    onUpdate(transaction.id, "iconId", iconId);
+    onUpdate(transaction.id, "iconType", iconType);
+    onUpdate(transaction.id, "iconUrl", iconUrl);
     
-    // Check localStorage after a short delay to see if it's saved
-    setTimeout(() => {
-      const savedTransactions = localStorage.getItem('poe-trading-calc-transactions');
-      if (savedTransactions) {
-        const transactions = JSON.parse(savedTransactions);
-        const updatedTransaction = transactions.find((t: { id: string }) => t.id === transaction.id);
-        console.log('Transaction in localStorage:', updatedTransaction);
-        console.log('IconUrl in localStorage:', updatedTransaction?.iconUrl);
-      }
-    }, 200);
-  };
+    // Nếu có iconName, cập nhật tên giao dịch
+    if (iconName) {
+      onUpdate(transaction.id, "name", iconName);
+    }
+  }, [transaction.id, onUpdate]);
 
 
 
@@ -190,12 +169,8 @@ export function TransactionCard({
                 src={transaction.iconUrl}
                 alt="Transaction icon"
                 className="w-6 h-6 rounded object-contain"
-                onLoad={() => {
-                  console.log('Transaction icon loaded successfully:', transaction.iconUrl);
-                }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  console.error('Failed to load transaction icon:', transaction.iconUrl);
                   target.style.display = 'none';
                 }}
               />
