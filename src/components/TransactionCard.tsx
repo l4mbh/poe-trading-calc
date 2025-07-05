@@ -93,7 +93,9 @@ export function TransactionCard({
   // Helper function để format số hiển thị (thay thế dấu chấm bằng phẩy và xử lý giá trị 0)
   const formatDisplayValue = (value: number): string => {
     if (value === 0) return "";
-    return value.toString().replace(".", ",");
+    // Sử dụng toFixed để tránh lỗi số thập phân không chính xác, sau đó loại bỏ số 0 thừa
+    const fixedValue = value.toFixed(10).replace(/\.?0+$/, '');
+    return fixedValue.replace(".", ",");
   };
 
   // Helper function để parse input từ user (thay thế phẩy bằng chấm)
@@ -115,11 +117,15 @@ export function TransactionCard({
     // Nếu input chứa operators toán học, evaluate expression
     if (/[+\-*/÷×()]/.test(normalizedInput)) {
       const result = evaluateExpression(normalizedInput);
-      return isNaN(result) ? null : result;
+      if (isNaN(result)) return null;
+      // Làm tròn kết quả để tránh lỗi số thập phân không chính xác
+      return Math.round(result * 1000000) / 1000000;
     } else {
       // Nếu là số bình thường
       const numValue = Number(normalizedInput);
-      return isNaN(numValue) ? null : numValue;
+      if (isNaN(numValue)) return null;
+      // Làm tròn kết quả để tránh lỗi số thập phân không chính xác
+      return Math.round(numValue * 1000000) / 1000000;
     }
   };
 
@@ -127,7 +133,8 @@ export function TransactionCard({
   const getSellInputValue = () => {
     if (sellPriceMode === "total") {
       // Hiển thị tổng giá theo currency hiện tại (không convert, giữ nguyên currency)
-      const totalValue = transaction.sellPrice * transaction.sellQuantity;
+      // Sử dụng Math.round để tránh lỗi số thập phân không chính xác
+      const totalValue = Math.round((transaction.sellPrice * transaction.sellQuantity) * 1000000) / 1000000;
       return formatDisplayValue(totalValue);
     }
     return formatDisplayValue(transaction.sellPrice); // Giá đơn vị
@@ -183,11 +190,16 @@ export function TransactionCard({
       if (isNaN(value)) return;
     }
 
+    // Làm tròn để tránh lỗi số thập phân không chính xác
+    value = Math.round(value * 1000000) / 1000000;
+
     if (sellPriceMode === "total") {
       // Từ tổng giá tính ra giá đơn vị
       if (transaction.sellQuantity > 0) {
         const unitPrice = value / transaction.sellQuantity;
-        onUpdate(transaction.id, "sellPrice", unitPrice);
+        // Làm tròn giá đơn vị để tránh lỗi số thập phân
+        const roundedUnitPrice = Math.round(unitPrice * 1000000) / 1000000;
+        onUpdate(transaction.id, "sellPrice", roundedUnitPrice);
       } else {
         // Nếu quantity = 0, không thể tính unit price, giữ nguyên
         onUpdate(transaction.id, "sellPrice", value);
@@ -237,6 +249,8 @@ export function TransactionCard({
       if (isNaN(value)) return;
     }
 
+    // Làm tròn để tránh lỗi số thập phân không chính xác
+    value = Math.round(value * 1000000) / 1000000;
     onUpdate(transaction.id, "buyPrice", value);
   };
 
@@ -531,9 +545,7 @@ export function TransactionCard({
                   <>
                     <span>
                       Đơn vị:{" "}
-                      {transaction.sellPrice.toFixed(
-                        transaction.sellPriceCurrency === "divine" ? 4 : 2
-                      )}
+                      {formatDisplayValue(transaction.sellPrice)}
                     </span>
                     <img
                       src={CURRENCY_IMAGES[transaction.sellPriceCurrency]}

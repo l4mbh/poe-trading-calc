@@ -222,168 +222,168 @@ const Header: React.FC<HeaderProps> = ({
             )}
           </div>
         </div>
+
+        {/* Search Bar - Sticky with header */}
+        {onSearchChange && (
+          <div
+            className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${
+              isSearchOpen ? "max-h-20 opacity-100" : "max-h-0 opacity-0"
+            } overflow-hidden`}
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+              <div className="flex items-center space-x-3">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm giao dịch..."
+                    value={searchTerm}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 pl-10 border border-slate-600 focus:border-yellow-400 focus:outline-none"
+                    autoFocus={isSearchOpen}
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                </div>
+                <button
+                  onClick={toggleSearch}
+                  className="text-slate-400 hover:text-red-400 transition-colors p-2 hover:bg-slate-700/50 rounded-lg"
+                  title="Đóng tìm kiếm"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Exchange Rate Panel - Sticky with header */}
+        {showExchangeRate && (
+          <div className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${isExchangeRateOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"} overflow-hidden`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Manual Rate Input */}
+                <div className="flex flex-col space-y-2">
+                  <label className="text-xs text-slate-400 mb-1">Tỷ giá thủ công</label>
+                  <input
+                    type="number"
+                    value={divineToChaoRate}
+                    onChange={e => onManualRateChange && onManualRateChange(Number(e.target.value))}
+                    className="w-32 bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+                {/* League Selection */}
+                <div className="flex flex-col space-y-2">
+                  <label className="text-xs text-slate-400 mb-1">League</label>
+                  <input
+                    type="text"
+                    value={leagueInput}
+                    onChange={handleLeagueChange}
+                    onBlur={handleLeagueBlur}
+                    className="w-48 bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
+                    placeholder="Nhập tên league..."
+                  />
+                </div>
+              </div>
+              {/* API Info & Reload */}
+              <div className="flex items-center space-x-4 mt-6">
+                <span className="text-xs text-slate-400">Tỷ giá API hiện tại:</span>
+                <span className="text-sm font-bold text-yellow-400">{apiRate ? apiRate.toFixed(2) : "N/A"}</span>
+                <button
+                  onClick={onReloadExchangeRate}
+                  className="p-2 rounded-full hover:bg-slate-700/50 text-yellow-400 transition-colors"
+                  title="Lấy tỷ giá mới từ API"
+                  disabled={isLoadingApiRate}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingApiRate ? "animate-spin" : ""}`} />
+                </button>
+                {apiLastUpdated && (
+                  <span className="text-xs text-slate-500 ml-2">Cập nhật: {new Date(apiLastUpdated).toLocaleTimeString()}</span>
+                )}
+                {!enableApiCalls && (
+                  <span className="text-xs text-red-400 ml-2">API OFF</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Total Profit Panel - Sticky with header */}
+        {showTotalProfit && getTotalProfitByFilter && (
+          <div
+            className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${
+              isTotalProfitOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
+            } overflow-hidden`}
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Active Transactions Profit */}
+                <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                  <span className="text-sm text-slate-300">Đang giao dịch:</span>
+                  <div className={`flex items-center space-x-1 ${
+                    getTotalProfitByFilter("all") >= 0 ? "text-green-400" : "text-red-400"
+                  }`}>
+                    <span className="text-lg font-bold">
+                      {getTotalProfitByFilter("all").toFixed(
+                        totalProfitCurrency === "chaos" ? 0 : 2
+                      )}
+                    </span>
+                    {CURRENCY_IMAGES && (
+                      <img
+                        src={CURRENCY_IMAGES[totalProfitCurrency]}
+                        alt={`${totalProfitCurrency} Orb`}
+                        className="w-5 h-5"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Completed Transactions Profit */}
+                <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                  <span className="text-sm text-slate-300">Đã bán:</span>
+                  <div className={`flex items-center space-x-1 ${
+                    (getCompletedProfitByFilter?.("all") || 0) >= 0 ? "text-green-400" : "text-red-400"
+                  }`}>
+                    <span className="text-lg font-bold">
+                      {(getCompletedProfitByFilter?.("all") || 0).toFixed(
+                        totalProfitCurrency === "chaos" ? 0 : 2
+                      )}
+                    </span>
+                    {CURRENCY_IMAGES && (
+                      <img
+                        src={CURRENCY_IMAGES[totalProfitCurrency]}
+                        alt={`${totalProfitCurrency} Orb`}
+                        className="w-5 h-5"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Total Combined Profit */}
+                <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                  <span className="text-sm text-slate-300">Tổng cộng:</span>
+                  <div className={`flex items-center space-x-1 ${
+                    ((getTotalProfitByFilter("all") + (getCompletedProfitByFilter?.("all") || 0)) >= 0) ? "text-green-400" : "text-red-400"
+                  }`}>
+                    <span className="text-lg font-bold">
+                      {(getTotalProfitByFilter("all") + (getCompletedProfitByFilter?.("all") || 0)).toFixed(
+                        totalProfitCurrency === "chaos" ? 0 : 2
+                      )}
+                    </span>
+                    {CURRENCY_IMAGES && (
+                      <img
+                        src={CURRENCY_IMAGES[totalProfitCurrency]}
+                        alt={`${totalProfitCurrency} Orb`}
+                        className="w-5 h-5"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
-      
-      {/* Search Bar - Slides down from header */}
-      {onSearchChange && (
-        <div
-          className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${
-            isSearchOpen ? "max-h-20 opacity-100" : "max-h-0 opacity-0"
-          } overflow-hidden`}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex items-center space-x-3">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm giao dịch..."
-                  value={searchTerm}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 pl-10 border border-slate-600 focus:border-yellow-400 focus:outline-none"
-                  autoFocus={isSearchOpen}
-                />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-              <button
-                onClick={toggleSearch}
-                className="text-slate-400 hover:text-red-400 transition-colors p-2 hover:bg-slate-700/50 rounded-lg"
-                title="Đóng tìm kiếm"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Exchange Rate Panel - Slides down from header */}
-      {showExchangeRate && (
-        <div className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${isExchangeRateOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"} overflow-hidden`}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Manual Rate Input */}
-              <div className="flex flex-col space-y-2">
-                <label className="text-xs text-slate-400 mb-1">Tỷ giá thủ công</label>
-                <input
-                  type="number"
-                  value={divineToChaoRate}
-                  onChange={e => onManualRateChange && onManualRateChange(Number(e.target.value))}
-                  className="w-32 bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-                  step="0.01"
-                  min="0"
-                />
-              </div>
-              {/* League Selection */}
-              <div className="flex flex-col space-y-2">
-                <label className="text-xs text-slate-400 mb-1">League</label>
-                <input
-                  type="text"
-                  value={leagueInput}
-                  onChange={handleLeagueChange}
-                  onBlur={handleLeagueBlur}
-                  className="w-48 bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
-                  placeholder="Nhập tên league..."
-                />
-              </div>
-            </div>
-            {/* API Info & Reload */}
-            <div className="flex items-center space-x-4 mt-6">
-              <span className="text-xs text-slate-400">Tỷ giá API hiện tại:</span>
-              <span className="text-sm font-bold text-yellow-400">{apiRate ? apiRate.toFixed(2) : "N/A"}</span>
-              <button
-                onClick={onReloadExchangeRate}
-                className="p-2 rounded-full hover:bg-slate-700/50 text-yellow-400 transition-colors"
-                title="Lấy tỷ giá mới từ API"
-                disabled={isLoadingApiRate}
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoadingApiRate ? "animate-spin" : ""}`} />
-              </button>
-              {apiLastUpdated && (
-                <span className="text-xs text-slate-500 ml-2">Cập nhật: {new Date(apiLastUpdated).toLocaleTimeString()}</span>
-              )}
-              {!enableApiCalls && (
-                <span className="text-xs text-red-400 ml-2">API OFF</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Total Profit Panel - Slides down from header */}
-      {showTotalProfit && getTotalProfitByFilter && (
-        <div
-          className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${
-            isTotalProfitOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
-          } overflow-hidden`}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Active Transactions Profit */}
-              <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                <span className="text-sm text-slate-300">Đang giao dịch:</span>
-                <div className={`flex items-center space-x-1 ${
-                  getTotalProfitByFilter("all") >= 0 ? "text-green-400" : "text-red-400"
-                }`}>
-                  <span className="text-lg font-bold">
-                    {getTotalProfitByFilter("all").toFixed(
-                      totalProfitCurrency === "chaos" ? 0 : 2
-                    )}
-                  </span>
-                  {CURRENCY_IMAGES && (
-                    <img
-                      src={CURRENCY_IMAGES[totalProfitCurrency]}
-                      alt={`${totalProfitCurrency} Orb`}
-                      className="w-5 h-5"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Completed Transactions Profit */}
-              <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                <span className="text-sm text-slate-300">Đã bán:</span>
-                <div className={`flex items-center space-x-1 ${
-                  (getCompletedProfitByFilter?.("all") || 0) >= 0 ? "text-green-400" : "text-red-400"
-                }`}>
-                  <span className="text-lg font-bold">
-                    {(getCompletedProfitByFilter?.("all") || 0).toFixed(
-                      totalProfitCurrency === "chaos" ? 0 : 2
-                    )}
-                  </span>
-                  {CURRENCY_IMAGES && (
-                    <img
-                      src={CURRENCY_IMAGES[totalProfitCurrency]}
-                      alt={`${totalProfitCurrency} Orb`}
-                      className="w-5 h-5"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Total Combined Profit */}
-              <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                <span className="text-sm text-slate-300">Tổng cộng:</span>
-                <div className={`flex items-center space-x-1 ${
-                  ((getTotalProfitByFilter("all") + (getCompletedProfitByFilter?.("all") || 0)) >= 0) ? "text-green-400" : "text-red-400"
-                }`}>
-                  <span className="text-lg font-bold">
-                    {(getTotalProfitByFilter("all") + (getCompletedProfitByFilter?.("all") || 0)).toFixed(
-                      totalProfitCurrency === "chaos" ? 0 : 2
-                    )}
-                  </span>
-                  {CURRENCY_IMAGES && (
-                    <img
-                      src={CURRENCY_IMAGES[totalProfitCurrency]}
-                      alt={`${totalProfitCurrency} Orb`}
-                      className="w-5 h-5"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
