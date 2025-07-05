@@ -38,6 +38,12 @@ export function TransactionCard({
     "unit"
   ); // 'unit' = giá đơn vị, 'total' = tổng giá
 
+  // Local state for input values while typing
+  const [buyPriceInput, setBuyPriceInput] = React.useState<string>("");
+  const [buyQuantityInput, setBuyQuantityInput] = React.useState<string>("");
+  const [sellPriceInput, setSellPriceInput] = React.useState<string>("");
+  const [sellQuantityInput, setSellQuantityInput] = React.useState<string>("");
+
   const toggleBuyPriceCurrency = () => {
     const newCurrency =
       transaction.buyPriceCurrency === "chaos" ? "divine" : "chaos";
@@ -211,13 +217,16 @@ export function TransactionCard({
             <input
               type="text"
               inputMode="decimal"
-              value={transaction.buyQuantity === 0 ? "" : transaction.buyQuantity.toString()}
+              value={buyQuantityInput || (transaction.buyQuantity === 0 ? "" : transaction.buyQuantity.toString())}
               onChange={(e) => {
+                setBuyQuantityInput(e.target.value);
+              }}
+              onBlur={(e) => {
                 const raw = e.target.value.replace(",", ".");
+                setBuyQuantityInput("");
+                
                 if (raw === "" || raw === "0") {
                   onUpdate(transaction.id, "buyQuantity", 0);
-                } else if (raw.endsWith(".")) {
-                  // Không update ngay, chờ user nhập xong
                 } else {
                   const num = parseFloat(raw);
                   if (!isNaN(num)) {
@@ -237,31 +246,34 @@ export function TransactionCard({
               <input
                 type="text"
                 inputMode="decimal"
-                value={transaction.buyPrice === 0 ? "" : transaction.buyPrice.toString()}
+                value={buyPriceInput || (transaction.buyPrice === 0 ? "" : transaction.buyPrice.toString())}
                 onChange={(e) => {
+                  // Cho phép nhập tự do
+                  setBuyPriceInput(e.target.value);
+                }}
+                onBlur={(e) => {
                   const raw = e.target.value.replace(",", ".");
+                  setBuyPriceInput(""); // Clear input state
+                  
                   if (raw === "" || raw === "0") {
                     onUpdate(transaction.id, "buyPrice", 0);
                   } else {
-                    // Cho phép nhập số thập phân incomplete như "1." hoặc biểu thức như "40/30"
-                    if (raw.endsWith(".") || /[+\-*/÷×()]/.test(raw)) {
-                      // Không update ngay, chờ user nhập xong
+                    // Thử evaluate expression hoặc parse number
+                    try {
+                      let result;
                       if (/[+\-*/÷×()]/.test(raw)) {
-                        // Nếu có phép tính, thử evaluate
-                        try {
-                          const result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
-                          if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
-                            onUpdate(transaction.id, "buyPrice", Math.round(result * 1000000) / 1000000);
-                          }
-                        } catch {
-                          // Ignore invalid expressions
-                        }
+                        // Có phép tính
+                        result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
+                      } else {
+                        // Số bình thường
+                        result = parseFloat(raw);
                       }
-                    } else {
-                      const num = parseFloat(raw);
-                      if (!isNaN(num)) {
-                        onUpdate(transaction.id, "buyPrice", Math.round(num * 1000000) / 1000000);
+                      
+                      if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
+                        onUpdate(transaction.id, "buyPrice", Math.round(result * 1000000) / 1000000);
                       }
+                    } catch {
+                      // Nếu không hợp lệ, giữ nguyên giá trị cũ
                     }
                   }
                 }}
@@ -363,13 +375,16 @@ export function TransactionCard({
             <input
               type="text"
               inputMode="decimal"
-              value={transaction.sellQuantity === 0 ? "" : transaction.sellQuantity.toString()}
+              value={sellQuantityInput || (transaction.sellQuantity === 0 ? "" : transaction.sellQuantity.toString())}
               onChange={(e) => {
+                setSellQuantityInput(e.target.value);
+              }}
+              onBlur={(e) => {
                 const raw = e.target.value.replace(",", ".");
+                setSellQuantityInput("");
+                
                 if (raw === "" || raw === "0") {
                   onUpdate(transaction.id, "sellQuantity", 0);
-                } else if (raw.endsWith(".")) {
-                  // Không update ngay, chờ user nhập xong
                 } else {
                   const num = parseFloat(raw);
                   if (!isNaN(num)) {
@@ -390,54 +405,47 @@ export function TransactionCard({
                 type="text"
                 inputMode="decimal"
                 value={
-                  sellPriceMode === "total"
+                  sellPriceInput || 
+                  (sellPriceMode === "total"
                     ? (transaction.sellPrice * transaction.sellQuantity === 0 ? "" : (transaction.sellPrice * transaction.sellQuantity).toString())
-                    : (transaction.sellPrice === 0 ? "" : transaction.sellPrice.toString())
+                    : (transaction.sellPrice === 0 ? "" : transaction.sellPrice.toString()))
                 }
                 onChange={(e) => {
+                  setSellPriceInput(e.target.value);
+                }}
+                onBlur={(e) => {
                   const raw = e.target.value.replace(",", ".");
+                  setSellPriceInput("");
+                  
                   if (raw === "" || raw === "0") {
                     onUpdate(transaction.id, "sellPrice", 0);
                   } else {
-                    // Cho phép nhập số thập phân incomplete như "1." hoặc biểu thức như "40/30"
-                    if (raw.endsWith(".") || /[+\-*/÷×()]/.test(raw)) {
-                      // Không update ngay, chờ user nhập xong
+                    // Thử evaluate expression hoặc parse number
+                    try {
+                      let result;
                       if (/[+\-*/÷×()]/.test(raw)) {
-                        // Nếu có phép tính, thử evaluate
-                        try {
-                          const result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
-                          if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
-                            if (sellPriceMode === "total") {
-                              // Từ tổng giá tính ra giá đơn vị
-                              if (transaction.sellQuantity > 0) {
-                                const unitPrice = result / transaction.sellQuantity;
-                                onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
-                              } else {
-                                onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
-                              }
-                            } else {
-                              onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
-                            }
-                          }
-                        } catch {
-                          // Ignore invalid expressions
-                        }
+                        // Có phép tính
+                        result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
+                      } else {
+                        // Số bình thường
+                        result = parseFloat(raw);
                       }
-                    } else {
-                      const num = parseFloat(raw);
-                      if (!isNaN(num)) {
+                      
+                      if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
                         if (sellPriceMode === "total") {
                           // Từ tổng giá tính ra giá đơn vị
                           if (transaction.sellQuantity > 0) {
-                            const unitPrice = num / transaction.sellQuantity;
+                            const unitPrice = result / transaction.sellQuantity;
                             onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
                           } else {
-                            onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                            onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
                           }
                         } else {
-                          onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                          onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
                         }
                       }
+                    } catch {
+                      // Nếu không hợp lệ, giữ nguyên giá trị cũ
                     }
                   }
                 }}
