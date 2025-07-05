@@ -590,7 +590,8 @@ export default function HomePage() {
   useEffect(() => {
     setGetTotalProfitByFilter(() => getTotalProfitByFilter);
     setGetCompletedProfitByFilter(() => getCompletedProfitByFilter);
-  }, [getTotalProfitByFilter, getCompletedProfitByFilter, setGetTotalProfitByFilter, setGetCompletedProfitByFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Chỉ chạy 1 lần khi mount, tránh vòng lặp
 
   // Sync state with AppContext
   useEffect(() => {
