@@ -220,6 +220,22 @@ export function TransactionCard({
               value={buyQuantityInput || (transaction.buyQuantity === 0 ? "" : transaction.buyQuantity.toString())}
               onChange={(e) => {
                 setBuyQuantityInput(e.target.value);
+                
+                // Cập nhật real-time cho số đơn giản
+                const raw = e.target.value.replace(",", ".");
+                if (raw === "" || raw === "0") {
+                  onUpdate(transaction.id, "buyQuantity", 0);
+                } else if (!raw.endsWith(".")) {
+                  const num = parseFloat(raw);
+                  if (!isNaN(num)) {
+                    onUpdate(transaction.id, "buyQuantity", Math.round(num * 1000000) / 1000000);
+                  }
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
               }}
               onBlur={(e) => {
                 const raw = e.target.value.replace(",", ".");
@@ -250,6 +266,23 @@ export function TransactionCard({
                 onChange={(e) => {
                   // Cho phép nhập tự do
                   setBuyPriceInput(e.target.value);
+                  
+                  // Cập nhật real-time cho số đơn giản (không có phép tính)
+                  const raw = e.target.value.replace(",", ".");
+                  if (raw === "" || raw === "0") {
+                    onUpdate(transaction.id, "buyPrice", 0);
+                  } else if (!/[+\-*/÷×()]/.test(raw) && !raw.endsWith(".")) {
+                    // Chỉ update real-time cho số bình thường, không có phép tính
+                    const num = parseFloat(raw);
+                    if (!isNaN(num)) {
+                      onUpdate(transaction.id, "buyPrice", Math.round(num * 1000000) / 1000000);
+                    }
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.currentTarget.blur(); // Trigger onBlur to process expression
+                  }
                 }}
                 onBlur={(e) => {
                   const raw = e.target.value.replace(",", ".");
@@ -378,6 +411,22 @@ export function TransactionCard({
               value={sellQuantityInput || (transaction.sellQuantity === 0 ? "" : transaction.sellQuantity.toString())}
               onChange={(e) => {
                 setSellQuantityInput(e.target.value);
+                
+                // Cập nhật real-time cho số đơn giản
+                const raw = e.target.value.replace(",", ".");
+                if (raw === "" || raw === "0") {
+                  onUpdate(transaction.id, "sellQuantity", 0);
+                } else if (!raw.endsWith(".")) {
+                  const num = parseFloat(raw);
+                  if (!isNaN(num)) {
+                    onUpdate(transaction.id, "sellQuantity", Math.round(num * 1000000) / 1000000);
+                  }
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
               }}
               onBlur={(e) => {
                 const raw = e.target.value.replace(",", ".");
@@ -412,6 +461,32 @@ export function TransactionCard({
                 }
                 onChange={(e) => {
                   setSellPriceInput(e.target.value);
+                  
+                  // Cập nhật real-time cho số đơn giản (không có phép tính)
+                  const raw = e.target.value.replace(",", ".");
+                  if (raw === "" || raw === "0") {
+                    onUpdate(transaction.id, "sellPrice", 0);
+                  } else if (!/[+\-*/÷×()]/.test(raw) && !raw.endsWith(".")) {
+                    const num = parseFloat(raw);
+                    if (!isNaN(num)) {
+                      if (sellPriceMode === "total") {
+                        // Từ tổng giá tính ra giá đơn vị
+                        if (transaction.sellQuantity > 0) {
+                          const unitPrice = num / transaction.sellQuantity;
+                          onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
+                        } else {
+                          onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                        }
+                      } else {
+                        onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                      }
+                    }
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.currentTarget.blur(); // Trigger onBlur to process expression
+                  }
                 }}
                 onBlur={(e) => {
                   const raw = e.target.value.replace(",", ".");
