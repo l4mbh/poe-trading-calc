@@ -571,7 +571,7 @@ export default function HomePage() {
   useEffect(() => {
     setGetTotalProfitByFilter(() => getTotalProfitByFilter);
     setGetCompletedProfitByFilter(() => getCompletedProfitByFilter);
-  }, [setGetTotalProfitByFilter, setGetCompletedProfitByFilter]); // Remove unstable functions from dependencies
+  }, [getTotalProfitByFilter, getCompletedProfitByFilter, setGetTotalProfitByFilter, setGetCompletedProfitByFilter]);
 
   // Sync state with AppContext
   useEffect(() => {

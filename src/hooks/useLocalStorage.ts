@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { preciseRound } from '../utils/mathUtils';
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -23,16 +24,16 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
             const processedItem = { ...item };
             // Làm tròn các trường số thập phân trong transaction
             if (typeof processedItem.buyPrice === 'number') {
-              processedItem.buyPrice = Math.round(processedItem.buyPrice * 1000000) / 1000000;
+              processedItem.buyPrice = preciseRound(processedItem.buyPrice);
             }
             if (typeof processedItem.sellPrice === 'number') {
-              processedItem.sellPrice = Math.round(processedItem.sellPrice * 1000000) / 1000000;
+              processedItem.sellPrice = preciseRound(processedItem.sellPrice);
             }
             if (typeof processedItem.buyQuantity === 'number') {
-              processedItem.buyQuantity = Math.round(processedItem.buyQuantity * 1000000) / 1000000;
+              processedItem.buyQuantity = preciseRound(processedItem.buyQuantity);
             }
             if (typeof processedItem.sellQuantity === 'number') {
-              processedItem.sellQuantity = Math.round(processedItem.sellQuantity * 1000000) / 1000000;
+              processedItem.sellQuantity = preciseRound(processedItem.sellQuantity);
             }
             return processedItem;
           }

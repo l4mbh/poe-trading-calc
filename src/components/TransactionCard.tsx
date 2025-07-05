@@ -12,6 +12,7 @@ import { CURRENCY_IMAGES, STORAGE_KEYS } from "../utils/constants";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { showSuccessToast } from "../utils/toastUtils";
 import { TransactionFooter } from "./TransactionFooter";
+import { safeParseFloat, safeEvaluate, preciseDivide } from "../utils/mathUtils";
 
 export function TransactionCard({
   transaction,
@@ -226,9 +227,9 @@ export function TransactionCard({
                 if (raw === "" || raw === "0") {
                   onUpdate(transaction.id, "buyQuantity", 0);
                 } else if (!raw.endsWith(".")) {
-                  const num = parseFloat(raw);
-                  if (!isNaN(num)) {
-                    onUpdate(transaction.id, "buyQuantity", Math.round(num * 1000000) / 1000000);
+                  const num = safeParseFloat(raw);
+                  if (num > 0) {
+                    onUpdate(transaction.id, "buyQuantity", num);
                   }
                 }
               }}
@@ -244,9 +245,9 @@ export function TransactionCard({
                 if (raw === "" || raw === "0") {
                   onUpdate(transaction.id, "buyQuantity", 0);
                 } else {
-                  const num = parseFloat(raw);
-                  if (!isNaN(num)) {
-                    onUpdate(transaction.id, "buyQuantity", Math.round(num * 1000000) / 1000000);
+                  const num = safeParseFloat(raw);
+                  if (num > 0) {
+                    onUpdate(transaction.id, "buyQuantity", num);
                   }
                 }
               }}
@@ -273,9 +274,9 @@ export function TransactionCard({
                     onUpdate(transaction.id, "buyPrice", 0);
                   } else if (!/[+\-*/÷×()]/.test(raw) && !raw.endsWith(".")) {
                     // Chỉ update real-time cho số bình thường, không có phép tính
-                    const num = parseFloat(raw);
-                    if (!isNaN(num)) {
-                      onUpdate(transaction.id, "buyPrice", Math.round(num * 1000000) / 1000000);
+                    const num = safeParseFloat(raw);
+                    if (num > 0) {
+                      onUpdate(transaction.id, "buyPrice", num);
                     }
                   }
                 }}
@@ -291,22 +292,9 @@ export function TransactionCard({
                   if (raw === "" || raw === "0") {
                     onUpdate(transaction.id, "buyPrice", 0);
                   } else {
-                    // Thử evaluate expression hoặc parse number
-                    try {
-                      let result;
-                      if (/[+\-*/÷×()]/.test(raw)) {
-                        // Có phép tính
-                        result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
-                      } else {
-                        // Số bình thường
-                        result = parseFloat(raw);
-                      }
-                      
-                      if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
-                        onUpdate(transaction.id, "buyPrice", Math.round(result * 1000000) / 1000000);
-                      }
-                    } catch {
-                      // Nếu không hợp lệ, giữ nguyên giá trị cũ
+                    const result = safeEvaluate(raw);
+                    if (result > 0) {
+                      onUpdate(transaction.id, "buyPrice", result);
                     }
                   }
                 }}
@@ -417,9 +405,9 @@ export function TransactionCard({
                 if (raw === "" || raw === "0") {
                   onUpdate(transaction.id, "sellQuantity", 0);
                 } else if (!raw.endsWith(".")) {
-                  const num = parseFloat(raw);
-                  if (!isNaN(num)) {
-                    onUpdate(transaction.id, "sellQuantity", Math.round(num * 1000000) / 1000000);
+                  const num = safeParseFloat(raw);
+                  if (num > 0) {
+                    onUpdate(transaction.id, "sellQuantity", num);
                   }
                 }
               }}
@@ -435,9 +423,9 @@ export function TransactionCard({
                 if (raw === "" || raw === "0") {
                   onUpdate(transaction.id, "sellQuantity", 0);
                 } else {
-                  const num = parseFloat(raw);
-                  if (!isNaN(num)) {
-                    onUpdate(transaction.id, "sellQuantity", Math.round(num * 1000000) / 1000000);
+                  const num = safeParseFloat(raw);
+                  if (num > 0) {
+                    onUpdate(transaction.id, "sellQuantity", num);
                   }
                 }
               }}
@@ -467,18 +455,18 @@ export function TransactionCard({
                   if (raw === "" || raw === "0") {
                     onUpdate(transaction.id, "sellPrice", 0);
                   } else if (!/[+\-*/÷×()]/.test(raw) && !raw.endsWith(".")) {
-                    const num = parseFloat(raw);
-                    if (!isNaN(num)) {
+                    const num = safeParseFloat(raw);
+                    if (num > 0) {
                       if (sellPriceMode === "total") {
                         // Từ tổng giá tính ra giá đơn vị
                         if (transaction.sellQuantity > 0) {
-                          const unitPrice = num / transaction.sellQuantity;
-                          onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
+                          const unitPrice = preciseDivide(num, transaction.sellQuantity);
+                          onUpdate(transaction.id, "sellPrice", unitPrice);
                         } else {
-                          onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                          onUpdate(transaction.id, "sellPrice", num);
                         }
                       } else {
-                        onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                        onUpdate(transaction.id, "sellPrice", num);
                       }
                     }
                   }
@@ -495,32 +483,19 @@ export function TransactionCard({
                   if (raw === "" || raw === "0") {
                     onUpdate(transaction.id, "sellPrice", 0);
                   } else {
-                    // Thử evaluate expression hoặc parse number
-                    try {
-                      let result;
-                      if (/[+\-*/÷×()]/.test(raw)) {
-                        // Có phép tính
-                        result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
-                      } else {
-                        // Số bình thường
-                        result = parseFloat(raw);
-                      }
-                      
-                      if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
-                        if (sellPriceMode === "total") {
-                          // Từ tổng giá tính ra giá đơn vị
-                          if (transaction.sellQuantity > 0) {
-                            const unitPrice = result / transaction.sellQuantity;
-                            onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
-                          } else {
-                            onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
-                          }
+                    const result = safeEvaluate(raw);
+                    if (result > 0) {
+                      if (sellPriceMode === "total") {
+                        // Từ tổng giá tính ra giá đơn vị
+                        if (transaction.sellQuantity > 0) {
+                          const unitPrice = preciseDivide(result, transaction.sellQuantity);
+                          onUpdate(transaction.id, "sellPrice", unitPrice);
                         } else {
-                          onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
+                          onUpdate(transaction.id, "sellPrice", result);
                         }
+                      } else {
+                        onUpdate(transaction.id, "sellPrice", result);
                       }
-                    } catch {
-                      // Nếu không hợp lệ, giữ nguyên giá trị cũ
                     }
                   }
                 }}
