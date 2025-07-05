@@ -160,14 +160,14 @@ export function TransactionCard({
           {/* Icon */}
           <button
             onClick={() => setShowImageSelector(true)}
-            className="flex-shrink-0 w-8 h-8 rounded-lg border border-slate-600 hover:border-yellow-400 transition-colors flex items-center justify-center bg-slate-700/50"
+            className="flex-shrink-0 w-10 h-10 rounded-lg border border-slate-600 hover:border-yellow-400 transition-colors flex items-center justify-center bg-slate-700/50"
             title="Chọn icon"
           >
             {transaction.iconUrl ? (
               <img
                 src={transaction.iconUrl}
                 alt="Transaction icon"
-                className="w-6 h-6 rounded object-contain"
+                className="w-full h-full rounded object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -181,8 +181,9 @@ export function TransactionCard({
           <input
             type="text"
             value={transaction.name}
+            title={transaction.name}
             onChange={(e) => onUpdate(transaction.id, "name", e.target.value)}
-            className="text-lg font-semibold text-white bg-transparent border-b border-slate-600 focus:border-yellow-400 focus:outline-none pb-1 flex-1"
+            className="text-lg font-semibold max-w-[150px] truncate text-white bg-transparent border-b border-slate-600 focus:border-yellow-400 focus:outline-none pb-1 flex-1"
           />
         </div>
         <div className="flex items-center space-x-1">
