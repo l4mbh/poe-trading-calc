@@ -13,8 +13,8 @@ import { showInfoToast } from "../utils/toastUtils";
 interface StickyLeftSidebarProps {
   divineToChaoRate: number;
   totalProfitCurrency: "chaos" | "divine";
-  getTotalProfitByFilter: (filter: "all" | "selected" | string) => number;
-  getCompletedProfitByFilter: (filter: "all" | "selected" | string) => number;
+  currentTotalProfit: number;
+  currentCompletedProfit: number;
   chaosToDiv: (chaosAmount: number) => number;
   divToChaos: (divAmount: number) => number;
   onUpdateExchangeRate: () => void;
@@ -38,8 +38,8 @@ interface StickyLeftSidebarProps {
 export function StickyLeftSidebar({
   divineToChaoRate,
   totalProfitCurrency,
-  getTotalProfitByFilter,
-  getCompletedProfitByFilter,
+  currentTotalProfit,
+  currentCompletedProfit,
   chaosToDiv,
   divToChaos,
   onUpdateExchangeRate,
@@ -208,7 +208,7 @@ export function StickyLeftSidebar({
               <div className="text-xs text-slate-400 mb-1">Profit</div>
               <div
                 className={`text-sm font-bold flex items-center justify-center space-x-1 cursor-pointer ${
-                  (profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)) >= 0
+                  (profitMode === "active" ? currentTotalProfit : currentCompletedProfit) >= 0
                     ? "text-green-400"
                     : "text-red-400"
                 }`}
@@ -216,7 +216,7 @@ export function StickyLeftSidebar({
                 title="Click để chuyển đổi đơn vị"
               >
                 <span className="text-center">
-                  {(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
+                  {(profitMode === "active" ? currentTotalProfit : currentCompletedProfit).toFixed(
                     totalProfitCurrency === "chaos" ? 0 : 2
                   )}
                 </span>
@@ -502,13 +502,13 @@ export function StickyLeftSidebar({
 
               <div
                 className={`text-xl font-bold flex items-center space-x-2 mb-2 ${
-                  (profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)) >= 0
+                  (profitMode === "active" ? currentTotalProfit : currentCompletedProfit) >= 0
                     ? "text-green-400"
                     : "text-red-400"
                 }`}
               >
                 <span>
-                  {(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
+                  {(profitMode === "active" ? currentTotalProfit : currentCompletedProfit).toFixed(
                     totalProfitCurrency === "chaos" ? 2 : 3
                   )}
                 </span>
@@ -522,10 +522,10 @@ export function StickyLeftSidebar({
                 <span>
                   ≈{" "}
                   {totalProfitCurrency === "chaos"
-                    ? chaosToDiv(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
+                    ? chaosToDiv(profitMode === "active" ? currentTotalProfit : currentCompletedProfit).toFixed(
                         3
                       )
-                    : divToChaos(profitMode === "active" ? getTotalProfitByFilter(profitFilter) : getCompletedProfitByFilter(profitFilter)).toFixed(
+                    : divToChaos(profitMode === "active" ? currentTotalProfit : currentCompletedProfit).toFixed(
                         2
                       )}
                 </span>

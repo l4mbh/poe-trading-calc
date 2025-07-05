@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { LayoutGrid, Table, MoreHorizontal } from "lucide-react";
 
@@ -102,25 +102,41 @@ export default function HomePage() {
   // Row view: expanded row id
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
+  // Track if migration has been performed
+  const migrationPerformed = useRef(false);
+
   // Migrate old data on component mount
   useEffect(() => {
-    try {
-      // Migrate old transactions to include currency fields
-      const migratedTransactions = transactions.map((t: LegacyTransaction) => ({
-        ...t,
-        buyPriceCurrency: t.buyPriceCurrency || "chaos",
-        sellPriceCurrency: t.sellPriceCurrency || "chaos",
-      }));
+    // Only run migration once
+    if (migrationPerformed.current) {
+      return;
+    }
 
-      if (
-        JSON.stringify(migratedTransactions) !== JSON.stringify(transactions)
-      ) {
+    try {
+      // Check if any transaction needs migration
+      const needsMigration = transactions.some((t: LegacyTransaction) => 
+        !t.buyPriceCurrency || !t.sellPriceCurrency
+      );
+
+      if (needsMigration) {
+        console.log("Running migration for transactions without currency fields");
+        // Migrate old transactions to include currency fields
+        const migratedTransactions = transactions.map((t: LegacyTransaction) => ({
+          ...t,
+          buyPriceCurrency: t.buyPriceCurrency || "chaos",
+          sellPriceCurrency: t.sellPriceCurrency || "chaos",
+        }));
+
         setTransactions(migratedTransactions);
       }
+      
+      // Mark migration as completed regardless
+      migrationPerformed.current = true;
     } catch (error) {
       console.error("Error migrating data:", error);
+      migrationPerformed.current = true; // Mark as completed even on error
     }
-  }, [transactions]);
+  }, []); // Empty dependency array - only run once on mount
 
   const resetTransaction = (id: string) => {
     setTransactions(
@@ -320,11 +336,11 @@ export default function HomePage() {
     return { profit, profitPercentage };
   }, [getPriceInChaosFn]);
 
-  const getFilteredTransactions = () => {
+  const getFilteredTransactions = useCallback(() => {
     return transactions.filter((transaction) =>
       transaction.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  };
+  }, [transactions, searchTerm]);
 
   const getTotalProfitByFilter = useCallback((filter: "all" | "selected" | string) => {
     let transactionsToCalculate: Transaction[];
@@ -378,7 +394,7 @@ export default function HomePage() {
       : chaosToDiv ? chaosToDiv(totalProfitInChaos) : (totalProfitInChaos / divineToChaoRate);
   }, [completedTransactions, totalProfitCurrency, chaosToDiv, divineToChaoRate]);
 
-  const getSortedTransactions = () => {
+  const getSortedTransactions = useCallback(() => {
     const filtered = getFilteredTransactions();
     return filtered.sort((a, b) => {
       // Favorites first
@@ -386,9 +402,9 @@ export default function HomePage() {
       if (!a.isFavorite && b.isFavorite) return 1;
       return 0;
     });
-  };
+  }, [getFilteredTransactions]);
 
-  const getTransactionsByGroup = () => {
+  const getTransactionsByGroup = useCallback(() => {
     const sorted = getSortedTransactions();
     const grouped: { [key: string]: Transaction[] } = {
       ungrouped: [],
@@ -407,7 +423,7 @@ export default function HomePage() {
     });
 
     return grouped;
-  };
+  }, [getSortedTransactions, groups]);
 
   const clearAllData = () => {
     if (
@@ -555,7 +571,7 @@ export default function HomePage() {
   useEffect(() => {
     setGetTotalProfitByFilter(() => getTotalProfitByFilter);
     setGetCompletedProfitByFilter(() => getCompletedProfitByFilter);
-  }, [getTotalProfitByFilter, getCompletedProfitByFilter, setGetTotalProfitByFilter, setGetCompletedProfitByFilter]);
+  }, [setGetTotalProfitByFilter, setGetCompletedProfitByFilter]); // Remove unstable functions from dependencies
 
   // Sync state with AppContext
   useEffect(() => {
@@ -575,6 +591,10 @@ export default function HomePage() {
     setContextGroups(groups);
   }, [groups, setContextGroups]);
 
+  // Pre-calculate profit values to avoid re-rendering
+  const currentTotalProfit = getTotalProfitByFilter(profitFilter);
+  const currentCompletedProfit = getCompletedProfitByFilter(profitFilter);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Sticky Left Sidebar */}
@@ -582,8 +602,8 @@ export default function HomePage() {
         <StickyLeftSidebar
           divineToChaoRate={divineToChaoRate}
           totalProfitCurrency={totalProfitCurrency}
-          getTotalProfitByFilter={getTotalProfitByFilter}
-          getCompletedProfitByFilter={getCompletedProfitByFilter}
+          currentTotalProfit={currentTotalProfit}
+          currentCompletedProfit={currentCompletedProfit}
           onUpdateExchangeRate={loadApiRate}
           onToggleTotalProfitCurrency={() =>
             setTotalProfitCurrency(
