@@ -90,141 +90,9 @@ export function TransactionCard({
     return profitDisplayCurrency === "chaos" ? profit : chaosToDivFn(profit);
   };
 
-  // Helper function để format số hiển thị (xử lý giá trị 0 và precision)
-  const formatDisplayValue = (value: number): string => {
-    if (value === 0) return "";
-    // Làm tròn trước để tránh lỗi precision, sau đó format
-    const rounded = Math.round(value * 1000000) / 1000000;
-    // Sử dụng toFixed để tránh lỗi số thập phân không chính xác, sau đó loại bỏ số 0 thừa
-    return rounded.toFixed(10).replace(/\.?0+$/, '');
-  };
 
-  // Helper function để parse input từ user (thay thế phẩy bằng chấm)
-  const parseInputValue = (inputValue: string): string => {
-    return inputValue.replace(",", ".");
-  };
 
-  // Evaluate math expressions (cộng, trừ, nhân, chia)
-  const evaluateExpression = (expression: string): number => {
-    try {
-      // Chỉ cho phép số, dấu +, -, *, /, (, ), dấu cách, và dấu thập phân
-      if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
-        return NaN;
-      }
 
-      // Replace division symbols cho dễ đọc
-      const normalizedExpression = expression
-        .replace(/÷/g, "/")
-        .replace(/×/g, "*")
-        .trim();
-
-      // Sử dụng Function constructor thay vì eval để an toàn hơn
-      const result = new Function("return " + normalizedExpression)();
-
-      if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
-        return result;
-      }
-      return NaN;
-    } catch {
-      return NaN;
-    }
-  };
-
-  // Xử lý khi thay đổi giá mua - hỗ trợ cả số và expression
-  const handleBuyPriceChange = (inputValue: string) => {
-    console.log("handleBuyPriceChange - input:", inputValue);
-    
-    // Nếu input rỗng, set về 0
-    if (inputValue.trim() === "") {
-      onUpdate(transaction.id, "buyPrice", 0);
-      return;
-    }
-
-    // Cho phép input incomplete như "1." hoặc "1," - không update
-    if (inputValue.endsWith(".") || inputValue.endsWith(",")) {
-      console.log("handleBuyPriceChange - incomplete input, not updating");
-      return;
-    }
-
-    // Parse input để thay phẩy bằng chấm
-    const normalizedInput = parseInputValue(inputValue);
-    console.log("handleBuyPriceChange - normalized:", normalizedInput);
-    
-    let value: number;
-
-    // Nếu input chứa operators toán học, evaluate expression
-    if (/[+\-*/÷×()]/.test(normalizedInput)) {
-      value = evaluateExpression(normalizedInput);
-      if (isNaN(value)) {
-        // Nếu expression không hợp lệ, không update
-        console.log("handleBuyPriceChange - invalid expression");
-        return;
-      }
-    } else {
-      // Nếu là số bình thường
-      value = Number(normalizedInput);
-      if (isNaN(value)) {
-        console.log("handleBuyPriceChange - invalid number");
-        return;
-      }
-    }
-
-    // Làm tròn để tránh lỗi số thập phân không chính xác
-    value = Math.round(value * 1000000) / 1000000;
-    console.log("handleBuyPriceChange - final value:", value);
-    onUpdate(transaction.id, "buyPrice", value);
-  };
-
-  // Xử lý khi thay đổi giá trị input - hỗ trợ cả số và expression
-  const handleSellPriceChange = (inputValue: string) => {
-    // Nếu input rỗng, set về 0
-    if (inputValue.trim() === "") {
-      onUpdate(transaction.id, "sellPrice", 0);
-      return;
-    }
-
-    // Cho phép input incomplete như "1." hoặc "1," - không update
-    if (inputValue.endsWith(".") || inputValue.endsWith(",")) {
-      return;
-    }
-
-    // Parse input để thay phẩy bằng chấm
-    const normalizedInput = parseInputValue(inputValue);
-    
-    let value: number;
-
-    // Nếu input chứa operators toán học, evaluate expression
-    if (/[+\-*/÷×()]/.test(normalizedInput)) {
-      value = evaluateExpression(normalizedInput);
-      if (isNaN(value)) {
-        // Nếu expression không hợp lệ, không update
-        return;
-      }
-    } else {
-      // Nếu là số bình thường
-      value = Number(normalizedInput);
-      if (isNaN(value)) return;
-    }
-
-    // Làm tròn để tránh lỗi số thập phân không chính xác
-    value = Math.round(value * 1000000) / 1000000;
-
-    if (sellPriceMode === "total") {
-      // Từ tổng giá tính ra giá đơn vị
-      if (transaction.sellQuantity > 0) {
-        const unitPrice = value / transaction.sellQuantity;
-        // Làm tròn giá đơn vị để tránh lỗi số thập phân
-        const roundedUnitPrice = Math.round(unitPrice * 1000000) / 1000000;
-        onUpdate(transaction.id, "sellPrice", roundedUnitPrice);
-      } else {
-        // Nếu quantity = 0, không thể tính unit price, giữ nguyên
-        onUpdate(transaction.id, "sellPrice", value);
-      }
-    } else {
-      // Chế độ giá đơn vị
-      onUpdate(transaction.id, "sellPrice", value);
-    }
-  };
 
   const toggleSellPriceMode = () => {
     setSellPriceMode(sellPriceMode === "unit" ? "total" : "unit");
@@ -240,52 +108,7 @@ export function TransactionCard({
     showSuccessToast("Đã reset các trường mua vào và bán ra");
   };
 
-  // Xử lý khi thay đổi số lượng - hỗ trợ cả số và expression
-  const handleQuantityChange = (inputValue: string, field: "buyQuantity" | "sellQuantity") => {
-    // Nếu input rỗng, set về 0
-    if (inputValue.trim() === "") {
-      onUpdate(transaction.id, field, 0);
-      return;
-    }
 
-    // Cho phép input incomplete như "1." hoặc "1," - không update
-    if (inputValue.endsWith(".") || inputValue.endsWith(",")) {
-      return;
-    }
-
-    // Parse input để thay phẩy bằng chấm
-    const normalizedInput = parseInputValue(inputValue);
-    
-    let value: number;
-
-    // Nếu input chứa operators toán học, evaluate expression
-    if (/[+\-*/÷×()]/.test(normalizedInput)) {
-      value = evaluateExpression(normalizedInput);
-      if (isNaN(value)) {
-        // Nếu expression không hợp lệ, không update
-        return;
-      }
-    } else {
-      // Nếu là số bình thường
-      value = Number(normalizedInput);
-      if (isNaN(value)) return;
-    }
-
-    // Làm tròn để tránh lỗi số thập phân không chính xác
-    value = Math.round(value * 1000000) / 1000000;
-    onUpdate(transaction.id, field, value);
-  };
-
-  // Tính toán giá trị để hiển thị trong input dựa trên mode
-  const getSellInputValue = () => {
-    if (sellPriceMode === "total") {
-      // Hiển thị tổng giá theo currency hiện tại (không convert, giữ nguyên currency)
-      // Sử dụng Math.round để tránh lỗi số thập phân không chính xác
-      const totalValue = Math.round((transaction.sellPrice * transaction.sellQuantity) * 1000000) / 1000000;
-      return formatDisplayValue(totalValue);
-    }
-    return formatDisplayValue(transaction.sellPrice); // Giá đơn vị
-  };
 
   return (
     <div
@@ -387,9 +210,20 @@ export function TransactionCard({
             </label>
             <input
               type="text"
-              value={formatDisplayValue(transaction.buyQuantity)}
+              inputMode="decimal"
+              value={transaction.buyQuantity === 0 ? "" : transaction.buyQuantity.toString()}
               onChange={(e) => {
-                handleQuantityChange(e.target.value, "buyQuantity");
+                const raw = e.target.value.replace(",", ".");
+                if (raw === "" || raw === "0") {
+                  onUpdate(transaction.id, "buyQuantity", 0);
+                } else if (raw.endsWith(".")) {
+                  // Không update ngay, chờ user nhập xong
+                } else {
+                  const num = parseFloat(raw);
+                  if (!isNaN(num)) {
+                    onUpdate(transaction.id, "buyQuantity", Math.round(num * 1000000) / 1000000);
+                  }
+                }
               }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-3 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
               placeholder="0"
@@ -402,9 +236,34 @@ export function TransactionCard({
             <div className="relative">
               <input
                 type="text"
-                value={formatDisplayValue(transaction.buyPrice)}
+                inputMode="decimal"
+                value={transaction.buyPrice === 0 ? "" : transaction.buyPrice.toString()}
                 onChange={(e) => {
-                  handleBuyPriceChange(e.target.value);
+                  const raw = e.target.value.replace(",", ".");
+                  if (raw === "" || raw === "0") {
+                    onUpdate(transaction.id, "buyPrice", 0);
+                  } else {
+                    // Cho phép nhập số thập phân incomplete như "1." hoặc biểu thức như "40/30"
+                    if (raw.endsWith(".") || /[+\-*/÷×()]/.test(raw)) {
+                      // Không update ngay, chờ user nhập xong
+                      if (/[+\-*/÷×()]/.test(raw)) {
+                        // Nếu có phép tính, thử evaluate
+                        try {
+                          const result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
+                          if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
+                            onUpdate(transaction.id, "buyPrice", Math.round(result * 1000000) / 1000000);
+                          }
+                        } catch {
+                          // Ignore invalid expressions
+                        }
+                      }
+                    } else {
+                      const num = parseFloat(raw);
+                      if (!isNaN(num)) {
+                        onUpdate(transaction.id, "buyPrice", Math.round(num * 1000000) / 1000000);
+                      }
+                    }
+                  }
                 }}
                 className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-3 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none pr-16"
                 placeholder="Ví dụ: 40/30 hoặc 1.5 hoặc 1,5"
@@ -503,9 +362,20 @@ export function TransactionCard({
             </label>
             <input
               type="text"
-              value={formatDisplayValue(transaction.sellQuantity)}
+              inputMode="decimal"
+              value={transaction.sellQuantity === 0 ? "" : transaction.sellQuantity.toString()}
               onChange={(e) => {
-                handleQuantityChange(e.target.value, "sellQuantity");
+                const raw = e.target.value.replace(",", ".");
+                if (raw === "" || raw === "0") {
+                  onUpdate(transaction.id, "sellQuantity", 0);
+                } else if (raw.endsWith(".")) {
+                  // Không update ngay, chờ user nhập xong
+                } else {
+                  const num = parseFloat(raw);
+                  if (!isNaN(num)) {
+                    onUpdate(transaction.id, "sellQuantity", Math.round(num * 1000000) / 1000000);
+                  }
+                }
               }}
               className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-3 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
               placeholder="0"
@@ -518,9 +388,58 @@ export function TransactionCard({
             <div className="relative">
               <input
                 type="text"
-                value={getSellInputValue()}
+                inputMode="decimal"
+                value={
+                  sellPriceMode === "total"
+                    ? (transaction.sellPrice * transaction.sellQuantity === 0 ? "" : (transaction.sellPrice * transaction.sellQuantity).toString())
+                    : (transaction.sellPrice === 0 ? "" : transaction.sellPrice.toString())
+                }
                 onChange={(e) => {
-                  handleSellPriceChange(e.target.value);
+                  const raw = e.target.value.replace(",", ".");
+                  if (raw === "" || raw === "0") {
+                    onUpdate(transaction.id, "sellPrice", 0);
+                  } else {
+                    // Cho phép nhập số thập phân incomplete như "1." hoặc biểu thức như "40/30"
+                    if (raw.endsWith(".") || /[+\-*/÷×()]/.test(raw)) {
+                      // Không update ngay, chờ user nhập xong
+                      if (/[+\-*/÷×()]/.test(raw)) {
+                        // Nếu có phép tính, thử evaluate
+                        try {
+                          const result = new Function("return " + raw.replace(/÷/g, "/").replace(/×/g, "*"))();
+                          if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
+                            if (sellPriceMode === "total") {
+                              // Từ tổng giá tính ra giá đơn vị
+                              if (transaction.sellQuantity > 0) {
+                                const unitPrice = result / transaction.sellQuantity;
+                                onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
+                              } else {
+                                onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
+                              }
+                            } else {
+                              onUpdate(transaction.id, "sellPrice", Math.round(result * 1000000) / 1000000);
+                            }
+                          }
+                        } catch {
+                          // Ignore invalid expressions
+                        }
+                      }
+                    } else {
+                      const num = parseFloat(raw);
+                      if (!isNaN(num)) {
+                        if (sellPriceMode === "total") {
+                          // Từ tổng giá tính ra giá đơn vị
+                          if (transaction.sellQuantity > 0) {
+                            const unitPrice = num / transaction.sellQuantity;
+                            onUpdate(transaction.id, "sellPrice", Math.round(unitPrice * 1000000) / 1000000);
+                          } else {
+                            onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                          }
+                        } else {
+                          onUpdate(transaction.id, "sellPrice", Math.round(num * 1000000) / 1000000);
+                        }
+                      }
+                    }
+                  }
                 }}
                 className="w-full bg-slate-700/50 text-white rounded-lg px-3 py-3 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none pr-16"
                 placeholder={
@@ -572,7 +491,7 @@ export function TransactionCard({
                   <>
                     <span>
                       Đơn vị:{" "}
-                      {formatDisplayValue(transaction.sellPrice)}
+                      {transaction.sellPrice === 0 ? "" : transaction.sellPrice.toString()}
                     </span>
                     <img
                       src={CURRENCY_IMAGES[transaction.sellPriceCurrency]}
