@@ -15,7 +15,8 @@ export const STORAGE_KEYS = {
   ENABLE_API_CALLS: 'poe-enable-api-calls',
   SHOW_EXCHANGE_RATE: 'poe-show-exchange-rate',
   SHOW_TOTAL_PROFIT: 'poe-show-total-profit',
-  SHOW_SIDEBAR: 'poe-show-sidebar'
+  SHOW_SIDEBAR: 'poe-show-sidebar',
+  SHOW_CALCULATOR: 'poe-show-calculator'
 } as const;
 
 export const GROUP_COLORS = [

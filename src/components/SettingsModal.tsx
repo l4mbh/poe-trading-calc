@@ -10,6 +10,8 @@ interface SettingsModalProps {
   onToggleSidebar?: () => void;
   enableApiCalls?: boolean;
   onToggleApiCalls?: () => void;
+  showCalculator?: boolean;
+  onToggleCalculator?: () => void;
 }
 
 export function SettingsModal({
@@ -21,6 +23,8 @@ export function SettingsModal({
   onToggleSidebar,
   enableApiCalls = true,
   onToggleApiCalls,
+  showCalculator = false,
+  onToggleCalculator,
 }: SettingsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -166,6 +170,34 @@ export function SettingsModal({
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                         showSidebar ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* Calculator Toggle */}
+              {onToggleCalculator && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-slate-300">
+                      Hiển thị máy tính
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Hiển thị máy tính floating bên phải với bàn phím số
+                    </div>
+                  </div>
+                  <button
+                    onClick={onToggleCalculator}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      showCalculator
+                        ? "bg-yellow-500"
+                        : "bg-slate-600"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        showCalculator ? "translate-x-6" : "translate-x-1"
                       }`}
                     />
                   </button>

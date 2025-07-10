@@ -28,6 +28,8 @@ interface AppContextType {
   CURRENCY_IMAGES: typeof CURRENCY_IMAGES;
   showSidebar: boolean;
   onToggleSidebar: () => void;
+  showCalculator: boolean;
+  onToggleCalculator: () => void;
   profitFilter: "all" | "selected" | string;
   setProfitFilter: (filter: "all" | "selected" | string) => void;
   groups: Array<{ id: string; name: string; color: string }>;
@@ -107,6 +109,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     STORAGE_KEYS.ENABLE_API_CALLS,
     true
   );
+  const [showCalculator, setShowCalculator] = useLocalStorage<boolean>(
+    STORAGE_KEYS.SHOW_CALCULATOR,
+    false
+  );
 
   // Function states
   const [getTotalProfitByFilter, setGetTotalProfitByFilter] = useState<((filter: "all" | "selected" | string) => number) | null>(null);
@@ -124,6 +130,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const handleToggleSidebar = () => {
     setShowSidebar(!showSidebar);
+  };
+
+  const handleToggleCalculator = () => {
+    setShowCalculator(!showCalculator);
   };
 
   const loadApiRate = async () => {
@@ -167,6 +177,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     CURRENCY_IMAGES,
     showSidebar,
     onToggleSidebar: handleToggleSidebar,
+    showCalculator,
+    onToggleCalculator: handleToggleCalculator,
     profitFilter,
     setProfitFilter,
     groups,

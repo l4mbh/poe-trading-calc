@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { SettingsModal } from "./SettingsModal";
+import { Calculator } from "./Calculator";
 import { useAppContext } from "../contexts/AppContext";
 
 const MainLayout: React.FC = () => {
@@ -30,6 +31,8 @@ const MainLayout: React.FC = () => {
     groups,
     showSidebar,
     onToggleSidebar,
+    showCalculator,
+    onToggleCalculator,
     selectedLeague,
     setSelectedLeague,
     apiRate,
@@ -85,6 +88,14 @@ const MainLayout: React.FC = () => {
         onToggleSidebar={onToggleSidebar}
         enableApiCalls={enableApiCalls}
         onToggleApiCalls={() => setEnableApiCalls(!enableApiCalls)}
+        showCalculator={showCalculator}
+        onToggleCalculator={onToggleCalculator}
+      />
+
+      {/* Calculator */}
+      <Calculator
+        isOpen={showCalculator}
+        onClose={() => onToggleCalculator()}
       />
     </div>
   );
