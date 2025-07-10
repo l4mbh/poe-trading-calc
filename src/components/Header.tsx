@@ -69,7 +69,7 @@ const Header: React.FC<HeaderProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   
-  const { currentUser, logout } = useAuth();
+  const { currentUser, userData, logout } = useAuth();
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -292,8 +292,12 @@ const Header: React.FC<HeaderProps> = ({
                       <User className="w-3.5 h-3.5 text-slate-400" />
                     )}
                   </div>
-                  <span className="text-xs font-medium">
+                  <span className="text-xs font-medium flex items-center">
                     {currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}
+                    <span className="relative flex h-2.5 w-2.5 ml-1">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${userData?.allowShare ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 border border-white ${userData?.allowShare ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                    </span>
                   </span>
                 </button>
 

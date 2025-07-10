@@ -14,11 +14,12 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { db } from '../config/firebase';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { UserModel } from '../models/UserModel';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
+  userData: UserModel | null;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -45,11 +46,37 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [userData, setUserData] = useState<UserModel | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Load user data from Firestore when auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data() as UserModel);
+          } else {
+            // Create user document if it doesn't exist
+            const newUserData: UserModel = {
+              uid: user.uid,
+              displayName: user.displayName || '',
+              email: user.email || '',
+              photoURL: user.photoURL || '',
+              createdAt: new Date().toISOString(),
+              allowShare: true,
+            };
+            await setDoc(doc(db, 'users', user.uid), newUserData);
+            setUserData(newUserData);
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        }
+      } else {
+        setUserData(null);
+      }
       setLoading(false);
     });
 
@@ -69,6 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       allowShare: true,
     };
     await setDoc(doc(db, 'users', result.user.uid), userData);
+    setUserData(userData);
     // Lưu dữ liệu public vào public_users
     const publicUserData = {
       uid: result.user.uid,
@@ -104,6 +132,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (photoURL !== undefined) updateFirestore.photoURL = photoURL;
     if (allowShare !== undefined) updateFirestore.allowShare = allowShare;
     await updateDoc(userRef, updateFirestore);
+    
+    // Cập nhật local state
+    if (userData) {
+      setUserData({
+        ...userData,
+        displayName,
+        ...(photoURL !== undefined && { photoURL }),
+        ...(allowShare !== undefined && { allowShare }),
+      });
+    }
+    
     // Đồng bộ sang public_users
     const publicUserRef = doc(db, 'public_users', currentUser.uid);
     const publicUpdate: any = { displayName };
@@ -129,6 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value = {
     currentUser,
+    userData,
     signUp,
     signIn,
     logout,

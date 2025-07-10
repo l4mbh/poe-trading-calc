@@ -2,14 +2,19 @@ import React, { useState, useMemo } from 'react';
 import { CompletedTransaction } from '../types';
 import { CURRENCY_IMAGES } from '../utils/constants';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, TimerIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, TimerIcon, Share2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { shareStatisticsToFirestore } from '../utils/firestoreUtils';
+import { showSuccessToast, showErrorToast } from '../utils/toastUtils';
 
 export default function StatisticsPage() {
+  const { currentUser, userData } = useAuth();
   const [completedTransactions] = useLocalStorage<CompletedTransaction[]>(
     'poe-completed-transactions',
     []
   );
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [isSharing, setIsSharing] = useState(false);
 
   // Get unique dates from completed transactions
   const availableDates = useMemo(() => {
@@ -22,6 +27,40 @@ export default function StatisticsPage() {
     if (!selectedDate) return completedTransactions;
     return completedTransactions.filter(t => t.completedDate === selectedDate);
   }, [completedTransactions, selectedDate]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Handle share statistics
+  const handleShareStatistics = async () => {
+    if (!currentUser || !userData || !selectedDate || filteredTransactions.length === 0) {
+      showErrorToast('Không thể chia sẻ thống kê');
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      await shareStatisticsToFirestore(
+        filteredTransactions,
+        selectedDate,
+        currentUser.uid,
+        userData.displayName
+      );
+      showSuccessToast(`Đã chia sẻ thống kê ngày ${formatDate(selectedDate)} thành công!`);
+    } catch (error) {
+      console.error('Error sharing statistics:', error);
+      showErrorToast('Chia sẻ thống kê thất bại');
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -83,16 +122,6 @@ export default function StatisticsPage() {
     };
   }, [filteredTransactions]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
   const formatProfit = (profit: number, isDivine: boolean = false) => {
     const isPositive = profit >= 0;
     return (
@@ -128,6 +157,23 @@ export default function StatisticsPage() {
             ))}
           </select>
         </div>
+
+        {/* Share Statistics Button */}
+        {currentUser && userData?.allowShare && selectedDate && filteredTransactions.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={handleShareStatistics}
+              disabled={isSharing}
+              className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-600 text-slate-900 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>{isSharing ? 'Đang chia sẻ...' : 'Chia sẻ thống kê này'}</span>
+            </button>
+            <p className="text-xs text-slate-400 mt-1">
+              Chia sẻ thống kê ngày {formatDate(selectedDate)} với {filteredTransactions.length} giao dịch
+            </p>
+          </div>
+        )}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

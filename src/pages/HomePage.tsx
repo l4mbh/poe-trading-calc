@@ -28,6 +28,8 @@ import MainActions from "../components/home/MainActions";
 import GroupForm from "../components/home/GroupForm";
 import EmptyState from "../components/home/EmptyState";
 import NoSearchResult from "../components/home/NoSearchResult";
+import { useAuth } from '../contexts/AuthContext';
+import { saveCompletedTransactionToFirestore } from '../utils/firestoreUtils';
 
 export default function HomePage() {
   const { searchTerm, setSearchTerm } = useOutletContext<{ searchTerm: string; setSearchTerm: (v: string) => void }>();
@@ -54,6 +56,7 @@ export default function HomePage() {
     setEnableApiCalls,
     loadApiRate
   } = useAppContext();
+  const { currentUser, userData } = useAuth();
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>(
     STORAGE_KEYS.TRANSACTIONS,
     []
@@ -179,7 +182,7 @@ export default function HomePage() {
     showSuccessToast(`Đã bắt đầu treo bán "${transaction.name}"`);
   };
 
-  const completeTransaction = (transaction: Transaction, profit: number, profitPercentage: number) => {
+  const completeTransaction = async (transaction: Transaction, profit: number, profitPercentage: number) => {
     const now = new Date();
     
     // Calculate selling duration if transaction was selling
@@ -201,6 +204,16 @@ export default function HomePage() {
     // Add to completed transactions
     setCompletedTransactions([...completedTransactions, completedTransaction]);
     
+    // Nếu user cho phép chia sẻ, lưu lên Firestore
+    if (userData?.allowShare && currentUser?.uid) {
+      try {
+        await saveCompletedTransactionToFirestore(completedTransaction, currentUser.uid);
+      } catch (error) {
+        console.error('Error saving to Firestore:', error);
+        showErrorToast('Không thể đồng bộ giao dịch lên server');
+      }
+    }
+
     // Reset the original transaction
     resetTransaction(transaction.id);
     

@@ -31,13 +31,9 @@ function App() {
             <Route index element={<HomePage />} />
             <Route path="updates" element={<UpdatesPage />} />
             <Route path="statistics" element={<StatisticsPage />} />
+            <Route path="shares" element={<SharesPage />} />
             
             {/* Protected Routes */}
-            <Route path="shares" element={
-              <PrivateRoute>
-                <SharesPage />
-              </PrivateRoute>
-            } />
             <Route path="profile" element={
               <PrivateRoute>
                 <ProfilePage />

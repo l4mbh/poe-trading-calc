@@ -348,20 +348,24 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
         </div>
         {/* History Panel */}
         {showHistory && (
-          <div className="bg-slate-900 rounded-lg p-2 mb-3 max-h-24 overflow-y-auto">
+          <div>
             <div className="text-xs text-slate-500 mb-1">Lịch sử</div>
-            {history.length === 0 ? (
-              <div className="text-xs text-slate-600">Chưa có lịch sử</div>
-            ) : (
-              <div className="space-y-1">
-                {history.map((item, index) => (
-                  <div key={index} className="text-xs">
-                    <div className="text-slate-400">{item.expression}</div>
-                    <div className="text-white font-mono">= {item.result}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="bg-slate-900 rounded-lg p-2 mb-3 max-h-24 overflow-y-auto">
+              {history.length === 0 ? (
+                <div className="text-xs text-slate-600">Chưa có lịch sử</div>
+              ) : (
+                <div className="space-y-1">
+                  {history.map((item, index) => (
+                    <div key={index} className="text-xs">
+                      <div className="text-slate-400">{item.expression}</div>
+                      <div className="text-white font-mono">
+                        = {item.result}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

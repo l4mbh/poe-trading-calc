@@ -1,29 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  User, 
-  Mail, 
-  Calendar, 
-  Shield, 
-  Trash2, 
-  Edit3, 
-  Save, 
-  X, 
-  Eye, 
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  User,
+  Mail,
+  Calendar,
+  Shield,
+  Trash2,
+  Edit3,
+  Save,
+  X,
+  Eye,
   EyeOff,
   AlertCircle,
   CheckCircle,
   Home,
-  LogOut
-} from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { showSuccessToast, showErrorToast } from '../utils/toastUtils';
-import { AvatarUpload } from '../components/AvatarUpload';
-import { sendEmailVerification } from 'firebase/auth';
-
+  LogOut,
+} from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { showSuccessToast, showErrorToast } from "../utils/toastUtils";
+import { AvatarUpload } from "../components/AvatarUpload";
+import { sendEmailVerification } from "firebase/auth";
 
 export default function ProfilePage() {
-  const { currentUser, logout, updateUserProfile, changePassword, deleteUserAccount } = useAuth();
+  const { currentUser, userData, logout, updateUserProfile, changePassword, deleteUserAccount } = useAuth();
   const navigate = useNavigate();
   
   // Profile editing states
@@ -31,30 +30,30 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [allowShare, setAllowShare] = useState<boolean>(true);
-  
+
   // Password change states
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  
+
   // Account deletion states
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendingVerify, setSendingVerify] = useState(false);
 
   useEffect(() => {
-    // Lấy allowShare từ Firestore nếu có (nếu đã load user)
-    if (currentUser && (currentUser as any).allowShare !== undefined) {
-      setAllowShare((currentUser as any).allowShare);
+    // Lấy allowShare từ userData (Firestore)
+    if (userData?.allowShare !== undefined) {
+      setAllowShare(userData.allowShare);
     }
-  }, [currentUser]);
+  }, [userData]);
 
   if (!currentUser) {
     return (
@@ -69,18 +68,18 @@ export default function ProfilePage() {
 
   const handleUpdateProfile = async () => {
     if (!displayName.trim()) {
-      showErrorToast('Tên hiển thị không được để trống');
+      showErrorToast("Tên hiển thị không được để trống");
       return;
     }
 
     try {
       setIsUpdatingProfile(true);
       await updateUserProfile(displayName.trim(), undefined, allowShare);
-      showSuccessToast('Cập nhật thông tin thành công!');
+      showSuccessToast("Cập nhật thông tin thành công!");
       setIsEditingProfile(false);
-    } catch (error: any) {
-      console.error('Update profile error:', error);
-      showErrorToast('Cập nhật thông tin thất bại');
+    } catch (error: unknown) {
+      console.error("Update profile error:", error);
+      showErrorToast("Cập nhật thông tin thất bại");
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -88,55 +87,62 @@ export default function ProfilePage() {
 
   const handleAvatarChange = async (avatarUrl: string) => {
     try {
-      await updateUserProfile(currentUser?.displayName || '', avatarUrl);
-      showSuccessToast('Cập nhật avatar thành công!');
-    } catch (error: any) {
-      console.error('Update avatar error:', error);
-      showErrorToast('Cập nhật avatar thất bại');
+      await updateUserProfile(currentUser?.displayName || "", avatarUrl);
+      showSuccessToast("Cập nhật avatar thành công!");
+    } catch (error: unknown) {
+      console.error("Update avatar error:", error);
+      showErrorToast("Cập nhật avatar thất bại");
     }
   };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmNewPassword) {
-      showErrorToast('Vui lòng nhập đầy đủ thông tin');
+      showErrorToast("Vui lòng nhập đầy đủ thông tin");
       return;
     }
 
     if (newPassword.length < 6) {
-      showErrorToast('Mật khẩu mới phải có ít nhất 6 ký tự');
+      showErrorToast("Mật khẩu mới phải có ít nhất 6 ký tự");
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      showErrorToast('Mật khẩu xác nhận không khớp');
+      showErrorToast("Mật khẩu xác nhận không khớp");
       return;
     }
 
     try {
       setIsUpdatingPassword(true);
       await changePassword(currentPassword, newPassword);
-      showSuccessToast('Đổi mật khẩu thành công!');
+      showSuccessToast("Đổi mật khẩu thành công!");
       setIsChangingPassword(false);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-    } catch (error: any) {
-      console.error('Change password error:', error);
-      let errorMessage = 'Đổi mật khẩu thất bại';
-      if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Mật khẩu hiện tại không đúng';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Mật khẩu mới quá yếu (ít nhất 6 ký tự)';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.';
-      } else if (error.code === 'auth/requires-recent-login') {
-        errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để đổi mật khẩu.';
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối internet.';
-      } else if (error.code === 'auth/invalid-credential') {
-        errorMessage = 'Mật khẩu hiện tại không đúng';
-      } else if (typeof error.message === 'string' && error.message.includes('recent authentication')) {
-        errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (error: unknown) {
+      console.error("Change password error:", error);
+      let errorMessage = "Đổi mật khẩu thất bại";
+      if (typeof error === "object" && error && "code" in error) {
+        const err = error as { code?: string; message?: string };
+        if (err.code === "auth/wrong-password") {
+          errorMessage = "Mật khẩu hiện tại không đúng";
+        } else if (err.code === "auth/weak-password") {
+          errorMessage = "Mật khẩu mới quá yếu (ít nhất 6 ký tự)";
+        } else if (err.code === "auth/too-many-requests") {
+          errorMessage = "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.";
+        } else if (err.code === "auth/requires-recent-login") {
+          errorMessage =
+            "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để đổi mật khẩu.";
+        } else if (err.code === "auth/network-request-failed") {
+          errorMessage = "Lỗi mạng. Vui lòng kiểm tra kết nối internet.";
+        } else if (err.code === "auth/invalid-credential") {
+          errorMessage = "Mật khẩu hiện tại không đúng";
+        } else if (
+          typeof err.message === "string" &&
+          err.message.includes("recent authentication")
+        ) {
+          errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+        }
       }
       showErrorToast(errorMessage);
     } finally {
@@ -146,24 +152,27 @@ export default function ProfilePage() {
 
   const handleDeleteAccount = async () => {
     if (!deleteConfirmPassword) {
-      showErrorToast('Vui lòng nhập mật khẩu để xác nhận');
+      showErrorToast("Vui lòng nhập mật khẩu để xác nhận");
       return;
     }
 
     try {
       setIsDeleting(true);
       await deleteUserAccount(deleteConfirmPassword);
-      
-      showSuccessToast('Tài khoản đã được xóa thành công');
-      navigate('/');
-    } catch (error: any) {
-      console.error('Delete account error:', error);
-      
-      let errorMessage = 'Xóa tài khoản thất bại';
-      if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Mật khẩu không đúng';
+
+      showSuccessToast("Tài khoản đã được xóa thành công");
+      navigate("/");
+    } catch (error: unknown) {
+      console.error("Delete account error:", error);
+
+      let errorMessage = "Xóa tài khoản thất bại";
+      if (typeof error === "object" && error && "code" in error) {
+        const err = error as { code?: string };
+        if (err.code === "auth/wrong-password") {
+          errorMessage = "Mật khẩu không đúng";
+        }
       }
-      
+
       showErrorToast(errorMessage);
     } finally {
       setIsDeleting(false);
@@ -173,11 +182,11 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await logout();
-      showSuccessToast('Đăng xuất thành công!');
-      navigate('/');
-    } catch (error) {
-      console.error('Logout error:', error);
-      showErrorToast('Đăng xuất thất bại');
+      showSuccessToast("Đăng xuất thành công!");
+      navigate("/");
+    } catch (error: unknown) {
+      console.error("Logout error:", error);
+      showErrorToast("Đăng xuất thất bại");
     }
   };
 
@@ -186,22 +195,22 @@ export default function ProfilePage() {
     try {
       setSendingVerify(true);
       await sendEmailVerification(currentUser);
-      showSuccessToast('Đã gửi email xác thực. Vui lòng kiểm tra hộp thư!');
-    } catch (error: any) {
-      console.error('Send email verification error:', error);
-      showErrorToast('Gửi email xác thực thất bại.');
+      showSuccessToast("Đã gửi email xác thực. Vui lòng kiểm tra hộp thư!");
+    } catch (error: unknown) {
+      console.error("Send email verification error:", error);
+      showErrorToast("Gửi email xác thực thất bại.");
     } finally {
       setSendingVerify(false);
     }
   };
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Intl.DateTimeFormat("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(date);
   };
 
@@ -221,7 +230,9 @@ export default function ProfilePage() {
 
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-white mb-2">Hồ sơ người dùng</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Hồ sơ người dùng
+          </h1>
           <p className="text-slate-400">Quản lý thông tin tài khoản của bạn</p>
         </div>
 
@@ -234,13 +245,13 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-6">
                 <AvatarUpload
                   currentAvatarUrl={currentUser?.photoURL}
-                  userId={currentUser?.uid || ''}
+                  userId={currentUser?.uid || ""}
                   onAvatarChange={handleAvatarChange}
                   size="lg"
                 />
                 <div className="flex-1">
                   <h3 className="text-lg font-medium text-white mb-2">
-                    {currentUser?.displayName || 'Người dùng'}
+                    {currentUser?.displayName || "Người dùng"}
                   </h3>
                   <p className="text-slate-400 text-sm">
                     Click vào avatar để thay đổi hoặc hover để xem preview
@@ -250,6 +261,20 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
+              {allowShare && (
+                <div className="flex items-center space-x-2 mt-2">
+                  <span className="relative flex h-3 w-3 ml-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white"></span>
+                  </span>
+                  <span className="text-yellow-300 text-sm select-none font-bold flex flex-col">
+                    <span>Đang bật chia sẻ thống kê giao dịch</span>
+                    <span className="text-slate-300 text-xs italic select-none">
+                      Có thể ẩn trong chỉnh sửa thông tin tài khoản
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Basic Info Card */}
@@ -257,7 +282,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                   <User className="w-5 h-5 text-yellow-400" />
-                  <span>Thông tin cơ bản</span>
+                  <span>Thông tin cơ bản </span>
                 </h2>
                 {!isEditingProfile ? (
                   <button
@@ -276,13 +301,13 @@ export default function ProfilePage() {
                     >
                       <Save className="w-4 h-4" />
                       <span className="text-sm">
-                        {isUpdatingProfile ? 'Đang lưu...' : 'Lưu'}
+                        {isUpdatingProfile ? "Đang lưu..." : "Lưu"}
                       </span>
                     </button>
                     <button
                       onClick={() => {
                         setIsEditingProfile(false);
-                        setDisplayName(currentUser?.displayName || '');
+                        setDisplayName(currentUser?.displayName || "");
                       }}
                       className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors"
                     >
@@ -308,10 +333,48 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <p className="text-white">
-                      {currentUser.displayName || 'Chưa có tên hiển thị'}
+                      {currentUser.displayName || "Chưa có tên hiển thị"}
                     </p>
                   )}
                 </div>
+                {/* Toggle allowShare */}
+                {isEditingProfile && (
+                  <div>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="relative inline-flex items-center h-6 w-11">
+                          <input
+                            type="checkbox"
+                            checked={allowShare}
+                            onChange={(e) => setAllowShare(e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`h-6 w-11 rounded-full transition-colors duration-200 ease-in-out ${
+                            allowShare ? 'bg-yellow-500' : 'bg-slate-600'
+                          }`}>
+                            <div className={`h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out ${
+                              allowShare ? 'translate-x-5' : 'translate-x-0.5'
+                            }`} style={{ marginTop: '2px' }}></div>
+                          </div>
+                        </div>
+                        <span className="text-slate-300 text-sm select-none">
+                          Cho phép chia sẻ thống kê giao dịch (ẩn danh)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`relative flex h-2 w-2 ${allowShare ? 'text-green-400' : 'text-slate-500'}`}>
+                          {allowShare && (
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          )}
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${allowShare ? 'bg-green-500' : 'bg-slate-500'}`}></span>
+                        </span>
+                        <span className={`text-xs font-medium ${allowShare ? 'text-green-400' : 'text-slate-500'}`}>
+                          {allowShare ? 'BẬT' : 'TẮT'}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -321,16 +384,20 @@ export default function ProfilePage() {
                     <Mail className="w-4 h-4 text-slate-400" />
                     <span className="text-white">{currentUser.email}</span>
                     {currentUser.emailVerified ? (
-                      <span className="flex items-center gap-1 text-green-400 text-xs font-medium"><CheckCircle className="w-4 h-4" /> Đã xác thực</span>
+                      <span className="flex items-center gap-1 text-green-400 text-xs font-medium">
+                        <CheckCircle className="w-4 h-4" /> Đã xác thực
+                      </span>
                     ) : (
                       <>
-                        <span className="flex items-center gap-1 text-red-400 text-xs font-medium"><AlertCircle className="w-4 h-4" /> Chưa xác thực</span>
+                        <span className="flex items-center gap-1 text-red-400 text-xs font-medium">
+                          <AlertCircle className="w-4 h-4" /> Chưa xác thực
+                        </span>
                         <button
                           onClick={handleSendEmailVerification}
                           disabled={sendingVerify}
                           className="ml-2 px-2 py-1 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded text-xs font-semibold transition-colors disabled:opacity-60"
                         >
-                          {sendingVerify ? 'Đang gửi...' : 'Gửi email xác thực'}
+                          {sendingVerify ? "Đang gửi..." : "Gửi email xác thực"}
                         </button>
                       </>
                     )}
@@ -343,7 +410,13 @@ export default function ProfilePage() {
                   </label>
                   <p className="text-white flex items-center space-x-2">
                     <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>{currentUser.metadata.creationTime ? formatDate(new Date(currentUser.metadata.creationTime)) : ''}</span>
+                    <span>
+                      {currentUser.metadata.creationTime
+                        ? formatDate(
+                            new Date(currentUser.metadata.creationTime)
+                          )
+                        : ""}
+                    </span>
                   </p>
                 </div>
 
@@ -353,22 +426,16 @@ export default function ProfilePage() {
                   </label>
                   <p className="text-white flex items-center space-x-2">
                     <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>{currentUser.metadata.lastSignInTime ? formatDate(new Date(currentUser.metadata.lastSignInTime)) : ''}</span>
+                    <span>
+                      {currentUser.metadata.lastSignInTime
+                        ? formatDate(
+                            new Date(currentUser.metadata.lastSignInTime)
+                          )
+                        : ""}
+                    </span>
                   </p>
                 </div>
               </div>
-              {isEditingProfile && (
-                <div className="mt-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={allowShare}
-                      onChange={e => setAllowShare(e.target.checked)}
-                    />
-                    Cho phép chia sẻ thống kê của tôi với mọi người (vui vẻ)
-                  </label>
-                </div>
-              )}
             </div>
 
             {/* Change Password Card */}
@@ -404,7 +471,7 @@ export default function ProfilePage() {
                     </label>
                     <div className="relative">
                       <input
-                        type={showCurrentPassword ? 'text' : 'password'}
+                        type={showCurrentPassword ? "text" : "password"}
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         className="w-full bg-slate-700 text-white rounded-lg px-3 py-2 pr-10 border border-slate-600 focus:border-yellow-400 focus:outline-none"
@@ -412,7 +479,9 @@ export default function ProfilePage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        onClick={() =>
+                          setShowCurrentPassword(!showCurrentPassword)
+                        }
                         className="absolute right-3 top-1/2 transform -translate-y-1/2"
                       >
                         {showCurrentPassword ? (
@@ -430,7 +499,7 @@ export default function ProfilePage() {
                     </label>
                     <div className="relative">
                       <input
-                        type={showNewPassword ? 'text' : 'password'}
+                        type={showNewPassword ? "text" : "password"}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         className="w-full bg-slate-700 text-white rounded-lg px-3 py-2 pr-10 border border-slate-600 focus:border-yellow-400 focus:outline-none"
@@ -456,7 +525,7 @@ export default function ProfilePage() {
                     </label>
                     <div className="relative">
                       <input
-                        type={showConfirmPassword ? 'text' : 'password'}
+                        type={showConfirmPassword ? "text" : "password"}
                         value={confirmNewPassword}
                         onChange={(e) => setConfirmNewPassword(e.target.value)}
                         className="w-full bg-slate-700 text-white rounded-lg px-3 py-2 pr-10 border border-slate-600 focus:border-yellow-400 focus:outline-none"
@@ -464,7 +533,9 @@ export default function ProfilePage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         className="absolute right-3 top-1/2 transform -translate-y-1/2"
                       >
                         {showConfirmPassword ? (
@@ -481,7 +552,7 @@ export default function ProfilePage() {
                     disabled={isUpdatingPassword}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    {isUpdatingPassword ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
+                    {isUpdatingPassword ? "Đang cập nhật..." : "Đổi mật khẩu"}
                   </button>
                 </div>
               )}
@@ -492,7 +563,9 @@ export default function ProfilePage() {
           <div className="space-y-6">
             {/* Account Actions */}
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Tài khoản</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Tài khoản
+              </h3>
               <div className="space-y-3">
                 <button
                   onClick={handleLogout}
@@ -510,13 +583,14 @@ export default function ProfilePage() {
                 <AlertCircle className="w-5 h-5" />
                 <span>Khu vực nguy hiểm</span>
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <p className="text-red-300 text-sm mb-3">
-                    Xóa tài khoản sẽ xóa vĩnh viễn tất cả dữ liệu của bạn. Hành động này không thể hoàn tác.
+                    Xóa tài khoản sẽ xóa vĩnh viễn tất cả dữ liệu của bạn. Hành
+                    động này không thể hoàn tác.
                   </p>
-                  
+
                   {!isDeletingAccount ? (
                     <button
                       onClick={() => setIsDeletingAccount(true)}
@@ -529,15 +603,19 @@ export default function ProfilePage() {
                     <div className="space-y-3">
                       <div className="relative">
                         <input
-                          type={showDeletePassword ? 'text' : 'password'}
+                          type={showDeletePassword ? "text" : "password"}
                           value={deleteConfirmPassword}
-                          onChange={(e) => setDeleteConfirmPassword(e.target.value)}
+                          onChange={(e) =>
+                            setDeleteConfirmPassword(e.target.value)
+                          }
                           className="w-full bg-slate-700 text-white rounded-lg px-3 py-2 pr-10 border border-red-500 focus:outline-none"
                           placeholder="Nhập mật khẩu để xác nhận"
                         />
                         <button
                           type="button"
-                          onClick={() => setShowDeletePassword(!showDeletePassword)}
+                          onClick={() =>
+                            setShowDeletePassword(!showDeletePassword)
+                          }
                           className="absolute right-3 top-1/2 transform -translate-y-1/2"
                         >
                           {showDeletePassword ? (
@@ -547,19 +625,19 @@ export default function ProfilePage() {
                           )}
                         </button>
                       </div>
-                      
+
                       <div className="flex space-x-2">
                         <button
                           onClick={handleDeleteAccount}
                           disabled={isDeleting}
                           className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
                         >
-                          {isDeleting ? 'Đang xóa...' : 'Xác nhận xóa'}
+                          {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
                         </button>
                         <button
                           onClick={() => {
                             setIsDeletingAccount(false);
-                            setDeleteConfirmPassword('');
+                            setDeleteConfirmPassword("");
                           }}
                           className="flex-1 bg-slate-600 hover:bg-slate-500 text-white font-medium py-2 px-4 rounded-lg transition-colors"
                         >
@@ -576,4 +654,4 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-} 
+}
