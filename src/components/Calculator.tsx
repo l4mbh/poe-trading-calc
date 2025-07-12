@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { X, History, Calculator as CalculatorIcon } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, History, Calculator as CalculatorIcon, ClockIcon } from "lucide-react";
 
 interface CalculatorProps {
   isOpen: boolean;
@@ -19,7 +19,6 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
   const [waitingForOperand, setWaitingForOperand] = useState(false);
   const [history, setHistory] = useState<CalculationHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const calculatorRef = useRef<HTMLDivElement>(null);
 
   // Handle keyboard input
   useEffect(() => {
@@ -62,7 +61,6 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
 
     if (isOpen) {
       document.addEventListener("keydown", handleKeyPress);
-      calculatorRef.current?.focus();
     }
 
     return () => {
@@ -181,7 +179,7 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-40 right-4 w-72 h-100 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-40 flex flex-col">
+    <div className="fixed top-40 right-4 w-80 h-100 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-40 flex flex-col">
       {/* Calculator Header */}
       <div className="flex items-center justify-between p-3 border-b border-slate-700">
         <div className="flex items-center space-x-2">
@@ -197,6 +195,7 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
                 : "text-slate-400 hover:text-white hover:bg-slate-700"
             }`}
             title="Lịch sử"
+            tabIndex={-1}
           >
             <History className="w-3 h-3" />
           </button>
@@ -204,6 +203,7 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
             title="Đóng"
+            tabIndex={-1}
           >
             <X className="w-3 h-3" />
           </button>
@@ -227,125 +227,159 @@ export function Calculator({ isOpen, onClose }: CalculatorProps) {
         </div>
 
         {/* Calculator Buttons */}
-        <div className="grid grid-cols-4 gap-1.5 flex-1 p-3">
-          {/* Row 1 */}
-          <button
-            onClick={clearAll}
-            className="bg-red-600 hover:bg-red-700 text-white rounded-lg p-2 text-xs font-medium transition-colors"
-          >
-            AC
-          </button>
-          <button
-            onClick={clearLastChar}
-            className="bg-slate-600 hover:bg-slate-700 text-white rounded-lg p-2 text-xs font-medium transition-colors"
-          >
-            C
-          </button>
-          <button
-            onClick={() => performOperation("÷")}
-            className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-sm font-medium transition-colors"
-          >
-            ÷
-          </button>
-          <button
-            onClick={() => performOperation("×")}
-            className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-sm font-medium transition-colors"
-          >
-            ×
-          </button>
+        <div className="flex gap-1.5 flex-1">
+          {/* Left side - Numbers and basic operations */}
+          <div className="flex-1 grid grid-cols-3 gap-1.5">
+            {/* Row 1 */}
+            <button
+              onClick={clearAll}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-lg p-2 text-xs font-medium transition-colors"
+              tabIndex={-1}
+            >
+              AC
+            </button>
+            <button
+              onClick={clearLastChar}
+              className="bg-slate-600 hover:bg-slate-700 text-white rounded-lg p-2 text-xs font-medium transition-colors"
+              tabIndex={-1}
+            >
+              C
+            </button>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors flex items-center justify-center"
+              tabIndex={-1}
+            >
+              <ClockIcon className="w-4 h-4" />
+            </button>
+            
 
-          {/* Row 2 */}
-          <button
-            onClick={() => inputDigit(7)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            7
-          </button>
-          <button
-            onClick={() => inputDigit(8)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            8
-          </button>
-          <button
-            onClick={() => inputDigit(9)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            9
-          </button>
-          <button
-            onClick={() => performOperation("-")}
-            className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            -
-          </button>
+            {/* Row 2 */}
+            <button
+              onClick={() => inputDigit(7)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              7
+            </button>
+            <button
+              onClick={() => inputDigit(8)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              8
+            </button>
+            <button
+              onClick={() => inputDigit(9)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              9
+            </button>
 
-          {/* Row 3 */}
-          <button
-            onClick={() => inputDigit(4)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            4
-          </button>
-          <button
-            onClick={() => inputDigit(5)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            5
-          </button>
-          <button
-            onClick={() => inputDigit(6)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            6
-          </button>
-          <button
-            onClick={() => performOperation("+")}
-            className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            +
-          </button>
+            {/* Row 3 */}
+            <button
+              onClick={() => inputDigit(4)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              4
+            </button>
+            <button
+              onClick={() => inputDigit(5)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              5
+            </button>
+            <button
+              onClick={() => inputDigit(6)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              6
+            </button>
 
-          {/* Row 4 */}
-          <button
-            onClick={() => inputDigit(1)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            1
-          </button>
-          <button
-            onClick={() => inputDigit(2)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            2
-          </button>
-          <button
-            onClick={() => inputDigit(3)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            3
-          </button>
-          <button
-            onClick={performCalculation}
-            className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors row-span-2"
-          >
-            =
-          </button>
+            {/* Row 4 */}
+            <button
+              onClick={() => inputDigit(1)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              1
+            </button>
+            <button
+              onClick={() => inputDigit(2)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              2
+            </button>
+            <button
+              onClick={() => inputDigit(3)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              3
+            </button>
 
-          {/* Row 5 */}
-          <button
-            onClick={() => inputDigit(0)}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors col-span-2"
-          >
-            0
-          </button>
-          <button
-            onClick={inputDecimal}
-            className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
-          >
-            .
-          </button>
+            {/* Row 5 */}
+            <button
+              onClick={() => inputDigit(0)}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors col-span-2"
+              tabIndex={-1}
+            >
+              0
+            </button>
+            <button
+              onClick={inputDecimal}
+              className="bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              .
+            </button>
+          </div>
+
+          {/* Right side - Operators column */}
+          <div className="flex flex-col gap-1.5 justify-between w-10">
+            <button
+              onClick={() => performOperation("÷")}
+              className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg aspect-square p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              ÷
+            </button>
+            <button
+              onClick={() => performOperation("×")}
+              className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              ×
+            </button>
+            <button
+              onClick={() => performOperation("-")}
+              className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              -
+            </button>
+            <button
+              onClick={() => performOperation("+")}
+              className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              +
+            </button>
+            <button
+              onClick={performCalculation}
+              className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg p-2 text-base font-medium transition-colors"
+              tabIndex={-1}
+            >
+              =
+            </button>
+          </div>
         </div>
+
         {/* History Panel */}
         {showHistory && (
           <div>

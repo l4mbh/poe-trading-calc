@@ -1,9 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Link } from "react-router-dom";
-import { Coins, Search, X, RefreshCw, Edit3, User, LogOut, Settings, LogIn } from "lucide-react";
+import {
+  Coins,
+  Search,
+  X,
+  RefreshCw,
+  Edit3,
+  User,
+  LogOut,
+  Settings,
+  LogIn,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { showSuccessToast } from "../utils/toastUtils";
-import AnnouncementBar from './AnnouncementBar';
+import AnnouncementBar from "./AnnouncementBar";
 
 interface HeaderProps {
   searchTerm?: string;
@@ -34,8 +44,8 @@ interface HeaderProps {
   enableApiCalls?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  searchTerm, 
+const Header: React.FC<HeaderProps> = ({
+  searchTerm,
   onSearchChange,
   showExchangeRate = false,
   showTotalProfit = false,
@@ -54,13 +64,13 @@ const Header: React.FC<HeaderProps> = ({
   onProfitFilterChange,
   profitFilter = "all",
   groups = [],
-  selectedLeague = '',
+  selectedLeague = "",
   onLeagueChange,
   onReloadExchangeRate,
   apiRate,
   isLoadingApiRate,
   apiLastUpdated,
-  enableApiCalls
+  enableApiCalls,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isExchangeRateOpen, setIsExchangeRateOpen] = useState(false);
@@ -68,20 +78,23 @@ const Header: React.FC<HeaderProps> = ({
   const [leagueInput, setLeagueInput] = useState(selectedLeague);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  
+
   const { currentUser, userData, logout } = useAuth();
 
   // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
         setShowUserMenu(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -114,10 +127,10 @@ const Header: React.FC<HeaderProps> = ({
   const handleLogout = async () => {
     try {
       await logout();
-      showSuccessToast('Đăng xuất thành công!');
+      showSuccessToast("Đăng xuất thành công!");
       setShowUserMenu(false);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
   };
 
@@ -127,7 +140,12 @@ const Header: React.FC<HeaderProps> = ({
         <AnnouncementBar
           message={
             <>
-              Đã có tính năng đăng nhập, xác thực tài khoản! Mời bạn thử nghiệm và xem danh sách thành viên ở <Link to="/members" className="underline hover:text-yellow-400">trang vui vẻ</Link> 🎉
+              Đã có tính năng đăng nhập, xác thực tài khoản! Mời bạn thử nghiệm
+              và xem danh sách thành viên ở{" "}
+              <Link to="/members" className="underline hover:text-yellow-400">
+                trang vui vẻ
+              </Link>{" "}
+              🎉
             </>
           }
         />
@@ -172,7 +190,10 @@ const Header: React.FC<HeaderProps> = ({
                 <div className="flex items-center space-x-1">
                   <span>Chia sẻ</span>
                   {!currentUser && (
-                    <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full" title="Cần đăng nhập"></div>
+                    <div
+                      className="w-1.5 h-1.5 bg-yellow-400 rounded-full"
+                      title="Cần đăng nhập"
+                    ></div>
                   )}
                 </div>
               </NavLink>
@@ -187,6 +208,24 @@ const Header: React.FC<HeaderProps> = ({
                 }
               >
                 Thống kê
+              </NavLink>
+              <NavLink
+                to="/divine-price"
+                className={({ isActive }) =>
+                  `transition-colors text-sm font-medium ${
+                    isActive
+                      ? "text-yellow-400"
+                      : "text-slate-300 hover:text-yellow-400"
+                  }`
+                }
+              >
+                <div className="flex items-center">
+                  Check giá Divine
+                  {/* NEW badge */}
+                  <span className="text-xs bg-yellow-400 text-slate-900 rounded-full px-1.5 py-0.5 ml-1">
+                    NEW
+                  </span>
+                </div>
               </NavLink>
             </nav>
           </div>
@@ -228,7 +267,11 @@ const Header: React.FC<HeaderProps> = ({
                   title="Lấy tỷ giá mới từ API"
                   disabled={isLoadingApiRate}
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingApiRate ? "animate-spin" : ""}`} />
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${
+                      isLoadingApiRate ? "animate-spin" : ""
+                    }`}
+                  />
                 </button>
               </div>
             )}
@@ -238,7 +281,9 @@ const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={toggleTotalProfit}
                 className={`flex items-center space-x-1.5 transition-colors px-2.5 py-1.5 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg border border-slate-700/50 ${
-                  (profitMode === "active" ? getTotalProfitByFilter("all") : getCompletedProfitByFilter?.("all") || 0) >= 0
+                  (profitMode === "active"
+                    ? getTotalProfitByFilter("all")
+                    : getCompletedProfitByFilter?.("all") || 0) >= 0
                     ? "text-green-400 hover:text-green-300"
                     : "text-red-400 hover:text-red-300"
                 }`}
@@ -246,9 +291,10 @@ const Header: React.FC<HeaderProps> = ({
               >
                 <span className="text-xs font-medium">Profit:</span>
                 <span className="text-xs font-bold">
-                  {(profitMode === "active" ? getTotalProfitByFilter("all") : getCompletedProfitByFilter?.("all") || 0).toFixed(
-                    totalProfitCurrency === "chaos" ? 0 : 2
-                  )}
+                  {(profitMode === "active"
+                    ? getTotalProfitByFilter("all")
+                    : getCompletedProfitByFilter?.("all") || 0
+                  ).toFixed(totalProfitCurrency === "chaos" ? 0 : 2)}
                 </span>
                 {CURRENCY_IMAGES && (
                   <img
@@ -293,10 +339,20 @@ const Header: React.FC<HeaderProps> = ({
                     )}
                   </div>
                   <span className="text-xs font-medium flex items-center">
-                    {currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}
+                    {currentUser.displayName ||
+                      currentUser.email?.split("@")[0] ||
+                      "User"}
                     <span className="relative flex h-2.5 w-2.5 ml-1">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${userData?.allowShare ? 'bg-green-400' : 'bg-gray-400'}`}></span>
-                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 border border-white ${userData?.allowShare ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                      <span
+                        className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                          userData?.allowShare ? "bg-green-400" : "bg-gray-400"
+                        }`}
+                      ></span>
+                      <span
+                        className={`relative inline-flex rounded-full h-2.5 w-2.5 border border-white ${
+                          userData?.allowShare ? "bg-green-500" : "bg-gray-500"
+                        }`}
+                      ></span>
                     </span>
                   </span>
                 </button>
@@ -307,7 +363,7 @@ const Header: React.FC<HeaderProps> = ({
                     <div className="py-2">
                       <div className="px-4 py-2 text-sm text-slate-400 border-b border-slate-700">
                         <div className="font-medium text-white">
-                          {currentUser.displayName || 'Người dùng'}
+                          {currentUser.displayName || "Người dùng"}
                         </div>
                         <div className="text-xs">{currentUser.email}</div>
                       </div>
@@ -378,16 +434,25 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Exchange Rate Panel - Sticky with header */}
         {showExchangeRate && (
-          <div className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${isExchangeRateOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"} overflow-hidden`}>
+          <div
+            className={`bg-slate-800/90 backdrop-blur-sm border-b border-slate-700 transition-all duration-300 ease-in-out ${
+              isExchangeRateOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"
+            } overflow-hidden`}
+          >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Manual Rate Input */}
                 <div className="flex flex-col space-y-2">
-                  <label className="text-xs text-slate-400 mb-1">Tỷ giá thủ công</label>
+                  <label className="text-xs text-slate-400 mb-1">
+                    Tỷ giá thủ công
+                  </label>
                   <input
                     type="number"
                     value={divineToChaoRate}
-                    onChange={e => onManualRateChange && onManualRateChange(Number(e.target.value))}
+                    onChange={(e) =>
+                      onManualRateChange &&
+                      onManualRateChange(Number(e.target.value))
+                    }
                     className="w-32 bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:border-yellow-400 focus:outline-none"
                     step="0.01"
                     min="0"
@@ -408,18 +473,28 @@ const Header: React.FC<HeaderProps> = ({
               </div>
               {/* API Info & Reload */}
               <div className="flex items-center space-x-4 mt-6">
-                <span className="text-xs text-slate-400">Tỷ giá API hiện tại:</span>
-                <span className="text-sm font-bold text-yellow-400">{apiRate ? apiRate.toFixed(2) : "N/A"}</span>
+                <span className="text-xs text-slate-400">
+                  Tỷ giá API hiện tại:
+                </span>
+                <span className="text-sm font-bold text-yellow-400">
+                  {apiRate ? apiRate.toFixed(2) : "N/A"}
+                </span>
                 <button
                   onClick={onReloadExchangeRate}
                   className="p-2 rounded-full hover:bg-slate-700/50 text-yellow-400 transition-colors"
                   title="Lấy tỷ giá mới từ API"
                   disabled={isLoadingApiRate}
                 >
-                  <RefreshCw className={`w-4 h-4 ${isLoadingApiRate ? "animate-spin" : ""}`} />
+                  <RefreshCw
+                    className={`w-4 h-4 ${
+                      isLoadingApiRate ? "animate-spin" : ""
+                    }`}
+                  />
                 </button>
                 {apiLastUpdated && (
-                  <span className="text-xs text-slate-500 ml-2">Cập nhật: {new Date(apiLastUpdated).toLocaleTimeString()}</span>
+                  <span className="text-xs text-slate-500 ml-2">
+                    Cập nhật: {new Date(apiLastUpdated).toLocaleTimeString()}
+                  </span>
                 )}
                 {!enableApiCalls && (
                   <span className="text-xs text-red-400 ml-2">API OFF</span>
@@ -440,10 +515,16 @@ const Header: React.FC<HeaderProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Active Transactions Profit */}
                 <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                  <span className="text-sm text-slate-300">Đang giao dịch:</span>
-                  <div className={`flex items-center space-x-1 ${
-                    getTotalProfitByFilter("all") >= 0 ? "text-green-400" : "text-red-400"
-                  }`}>
+                  <span className="text-sm text-slate-300">
+                    Đang giao dịch:
+                  </span>
+                  <div
+                    className={`flex items-center space-x-1 ${
+                      getTotalProfitByFilter("all") >= 0
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     <span className="text-lg font-bold">
                       {getTotalProfitByFilter("all").toFixed(
                         totalProfitCurrency === "chaos" ? 0 : 2
@@ -462,9 +543,13 @@ const Header: React.FC<HeaderProps> = ({
                 {/* Completed Transactions Profit */}
                 <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
                   <span className="text-sm text-slate-300">Đã bán:</span>
-                  <div className={`flex items-center space-x-1 ${
-                    (getCompletedProfitByFilter?.("all") || 0) >= 0 ? "text-green-400" : "text-red-400"
-                  }`}>
+                  <div
+                    className={`flex items-center space-x-1 ${
+                      (getCompletedProfitByFilter?.("all") || 0) >= 0
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     <span className="text-lg font-bold">
                       {(getCompletedProfitByFilter?.("all") || 0).toFixed(
                         totalProfitCurrency === "chaos" ? 0 : 2
@@ -483,13 +568,20 @@ const Header: React.FC<HeaderProps> = ({
                 {/* Total Combined Profit */}
                 <div className="flex items-center justify-center space-x-3 bg-slate-700/50 rounded-lg p-3 border border-slate-600">
                   <span className="text-sm text-slate-300">Tổng cộng:</span>
-                  <div className={`flex items-center space-x-1 ${
-                    ((getTotalProfitByFilter("all") + (getCompletedProfitByFilter?.("all") || 0)) >= 0) ? "text-green-400" : "text-red-400"
-                  }`}>
+                  <div
+                    className={`flex items-center space-x-1 ${
+                      getTotalProfitByFilter("all") +
+                        (getCompletedProfitByFilter?.("all") || 0) >=
+                      0
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     <span className="text-lg font-bold">
-                      {(getTotalProfitByFilter("all") + (getCompletedProfitByFilter?.("all") || 0)).toFixed(
-                        totalProfitCurrency === "chaos" ? 0 : 2
-                      )}
+                      {(
+                        getTotalProfitByFilter("all") +
+                        (getCompletedProfitByFilter?.("all") || 0)
+                      ).toFixed(totalProfitCurrency === "chaos" ? 0 : 2)}
                     </span>
                     {CURRENCY_IMAGES && (
                       <img

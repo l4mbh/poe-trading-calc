@@ -13,6 +13,7 @@ import { AppProvider } from "./contexts/AppContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import FunMembersPage from './pages/FunMembersPage';
+import DivinePricePage from "./pages/DivinePricePage";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
             <Route path="updates" element={<UpdatesPage />} />
             <Route path="statistics" element={<StatisticsPage />} />
             <Route path="shares" element={<SharesPage />} />
+            <Route path="divine-price" element={<DivinePricePage />} />
             
             {/* Protected Routes */}
             <Route path="profile" element={

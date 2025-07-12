@@ -20,7 +20,9 @@ import {
 } from "../utils/toastUtils";
 import { StickyLeftSidebar } from "../components/StickyLeftSidebar";
 import { DataModal } from "../components/DataModal";
-import { ToastProvider } from "../components/ToastProvider";
+import { SettingsModal } from "../components/SettingsModal";
+import { Calculator } from "../components/Calculator";
+
 import GroupList from "../components/home/GroupList";
 import UngroupedTransactionList from "../components/home/UngroupedTransactionList";
 import TransactionTableView from "../components/home/TransactionTableView";
@@ -54,7 +56,13 @@ export default function HomePage() {
     isLoadingApiRate,
     enableApiCalls,
     setEnableApiCalls,
-    loadApiRate
+    loadApiRate,
+    showExchangeRate,
+    onToggleExchangeRate,
+    showTotalProfit,
+    onToggleTotalProfit,
+    showCalculator,
+    onToggleCalculator
   } = useAppContext();
   const { currentUser, userData } = useAuth();
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>(
@@ -843,9 +851,27 @@ export default function HomePage() {
         onExport={exportData}
         onFileUpload={handleFileUpload}
       />
+      
+      {/* Settings Modal */}
+      <SettingsModal
+        showExchangeRate={showExchangeRate}
+        showTotalProfit={showTotalProfit}
+        onToggleExchangeRate={onToggleExchangeRate}
+        onToggleTotalProfit={onToggleTotalProfit}
+        showSidebar={showSidebar}
+        onToggleSidebar={onToggleSidebar}
+        enableApiCalls={enableApiCalls}
+        onToggleApiCalls={() => setEnableApiCalls(!enableApiCalls)}
+        showCalculator={showCalculator}
+        onToggleCalculator={onToggleCalculator}
+      />
 
-      {/* Toast Provider */}
-      <ToastProvider />
+      {/* Calculator */}
+      <Calculator
+        isOpen={showCalculator}
+        onClose={() => onToggleCalculator()}
+      />
+
     </div>
   );
 }

@@ -85,7 +85,73 @@ Firebase Authentication không cần security rules riêng, nhưng có thể c�
    - **Email verification**: Tùy chọn
    - **Phone verification**: Tùy chọn
 
-### 6.2. Rate Limiting
+### 6.2. Firestore Security Rules
+
+Thêm rules sau vào **Firestore Database** > **Rules**:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - chỉ user có thể đọc/ghi data của chính mình
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Completed transactions sub-collection
+      match /completedTransactions/{transactionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Transactions collection - chỉ user sở hữu
+    match /transactions/{transactionId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Public users collection - public read, authenticated write
+    match /public_users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Shared statistics collection - public read, authenticated write
+    match /shared_statistics/{shareId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      }
+    }
+    
+    // Divine prices collection - public read, authenticated write with rate limiting
+    match /divine_prices/{traderId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        (resource == null || 
+         !resource.exists || 
+         request.time > resource.data.lastFetchAt + duration.value(4, 'm'));
+    }
+    
+    // Test collection for debugging
+    match /test_divine_prices/{traderId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+**Lưu ý quan trọng:**
+- Sử dụng `duration.value(4, 'm')` thay vì `240000` milliseconds
+- Sử dụng `request.time > resource.data.lastFetchAt + duration` thay vì `.toMillis()`
+- Thêm `resource == null` check cho document chưa tồn tại
+
+### 6.3. Rate Limiting
 1. **Authentication** > **Settings** > **Advanced**
 2. Cấu hình rate limits cho:
    - Sign-up attempts

@@ -7,8 +7,8 @@ import { ToastProvider } from './components/ToastProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ToastProvider />
     <BrowserRouter>
+      <ToastProvider />
       <App />
     </BrowserRouter>
   </StrictMode>
